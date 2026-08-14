@@ -1,4 +1,4 @@
-"""Data classes for EnterpriseRAG-Bench items."""
+"""Shared data classes for benchmark datasets."""
 
 from __future__ import annotations
 
@@ -8,30 +8,32 @@ from pathlib import Path
 
 @dataclass
 class BenchDocument:
-    """A single enterprise document from the dataset."""
+    """A document referenced by benchmark questions."""
 
-    uuid: str
+    doc_id: str  # unique identifier (uuid for EnterpriseRAG, doc_name for FinanceBench)
     title: str
-    source_path: Path  # original JSON path in the dataset
-    content_fields: dict[str, str]  # field_name → rendered text
-    metadata: dict  # everything else
+    source_path: Path  # path to the original file (JSON, PDF, etc.)
+    content_fields: dict[str, str] = field(default_factory=dict)  # field_name → text
+    metadata: dict = field(default_factory=dict)
 
     @property
     def slug(self) -> str:
-        return self.uuid
+        return self.doc_id
 
 
 @dataclass
 class BenchQuestion:
-    """A single benchmark question with ground-truth."""
+    """A benchmark question with ground-truth answer."""
 
     question_id: str
     question: str
     question_type: str
-    source_types: list[str]
-    expected_doc_ids: list[str]
+    expected_doc_ids: list[str]  # doc_ids this question is about
     gold_answer: str
-    answer_facts: list[str]
+    justification: str = ""  # human explanation of the answer
+    answer_facts: list[str] = field(default_factory=list)  # atomic facts (EnterpriseRAG)
+    evidence: list[dict] = field(default_factory=list)  # evidence passages (FinanceBench)
+    metadata: dict = field(default_factory=dict)  # dataset-specific fields
 
 
 @dataclass
@@ -41,9 +43,11 @@ class BenchResult:
     question_id: str
     question: str
     question_type: str
-    source_types: list[str]
     expected_doc_ids: list[str]
     predicted: str
     gold_answer: str
-    answer_facts: list[str]
+    justification: str = ""
+    answer_facts: list[str] = field(default_factory=list)
+    evidence: list[dict] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
     error: str | None = None

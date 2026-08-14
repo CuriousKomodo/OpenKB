@@ -37,10 +37,10 @@ def load_questions(data_dir: Path, *, include_extra: bool = True) -> list[BenchQ
                     question_id=raw["question_id"],
                     question=raw["question"],
                     question_type=raw.get("question_type", ""),
-                    source_types=raw.get("source_types", []),
                     expected_doc_ids=raw.get("expected_doc_ids", []),
                     gold_answer=raw.get("gold_answer", ""),
                     answer_facts=raw.get("answer_facts", []),
+                    metadata={"source_types": raw.get("source_types", [])},
                 )
             )
     return questions
@@ -90,7 +90,7 @@ def _parse_doc(path: Path, raw: dict) -> BenchDocument:
     metadata = {k: v for k, v in raw.items() if k not in skip_keys}
 
     return BenchDocument(
-        uuid=raw.get("dataset_doc_uuid", ""),
+        doc_id=raw.get("dataset_doc_uuid", ""),
         title=title,
         source_path=path,
         content_fields=content_fields,

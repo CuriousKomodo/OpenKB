@@ -26,9 +26,10 @@ docs/internal/
 # new drops from being swept into commits.
 examples/docs/
 
-# Benchmark outputs and prepared data
+# Benchmark outputs and data
 benchmark/output/
 benchmark/data/
+benchmark/processed_data/
 
 # Built Workbench web bundle (regenerate with `cd frontend && npm install && npm run build`).
 # Shipped inside the wheel via hatchling `artifacts`, never committed to git.

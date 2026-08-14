@@ -61,11 +61,13 @@ def run_all(
             question_id=q.question_id,
             question=q.question,
             question_type=q.question_type,
-            source_types=q.source_types,
             expected_doc_ids=q.expected_doc_ids,
             predicted=predicted,
             gold_answer=q.gold_answer,
+            justification=q.justification,
             answer_facts=q.answer_facts,
+            evidence=q.evidence,
+            metadata=q.metadata,
             error=error,
         )
         results.append(result)
