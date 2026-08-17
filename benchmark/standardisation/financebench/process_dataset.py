@@ -170,7 +170,6 @@ def main(
     print(f"  {output_dir}/questions.jsonl      ({len(questions)} questions)")
     print(f"  {output_dir}/documents.jsonl      ({len(documents)} documents)")
     print(f"  {output_dir}/doc_id_to_pdf.json   ({len(all_pdf_map)} PDFs)")
-    print(f"  {output_dir}/doc_id_to_pdf.json   ({len(pdf_map)} PDF paths)")
 
 
 if __name__ == "__main__":
