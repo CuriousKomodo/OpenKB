@@ -78,6 +78,7 @@ def run(
     kb_root: Path = typer.Option(KB_ROOT, help="Root for benchmark KBs"),
     limit: int = typer.Option(0, help="Max questions (0=all)"),
     skip_ingest: bool = typer.Option(False, help="Skip ingestion"),
+    ingest_all_docs: bool = typer.Option(False, "--ingest-all", help="Ingest all docs, not just question-referenced"),
 ):
     """Run the full E2E benchmark pipeline for a dataset."""
     dataset_dir = PROCESSED_DIR / dataset
@@ -92,11 +93,14 @@ def run(
 
     if not skip_ingest:
         all_paths = _load_doc_paths(dataset_dir)
-        needed = {d for q in questions for d in q.expected_doc_ids if d}
-        doc_id_to_path = {doc_id: all_paths[doc_id] for doc_id in needed if doc_id in all_paths}
-        missing = needed - set(doc_id_to_path)
-        if missing:
-            print(f"  warning: {len(missing)} docs not in path mapping")
+        if ingest_all_docs:
+            doc_id_to_path = all_paths
+        else:
+            needed = {d for q in questions for d in q.expected_doc_ids if d}
+            doc_id_to_path = {doc_id: all_paths[doc_id] for doc_id in needed if doc_id in all_paths}
+            missing = needed - set(doc_id_to_path)
+            if missing:
+                print(f"  warning: {len(missing)} docs not in path mapping")
 
         print(f"ingesting {len(doc_id_to_path)} documents ...")
         outcomes = ingest_all(doc_id_to_path, kb_dir, resolved_model)

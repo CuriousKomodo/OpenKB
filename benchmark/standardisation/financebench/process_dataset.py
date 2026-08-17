@@ -139,29 +139,37 @@ def main(
     questions = process_questions(data_dir)
     print(f"  {len(questions)} questions")
 
-    # 2. Document metadata
+    # 2. Document metadata (question-referenced docs)
     print("loading document info ...")
     doc_info = _load_document_info(data_dir)
     needed = {doc_id for q in questions for doc_id in q.expected_doc_ids}
     documents = process_documents(data_dir, doc_info, needed)
     found = sum(1 for d in documents if d.metadata.get("pdf_exists"))
-    print(f"  {found}/{len(documents)} PDFs found on disk")
+    print(f"  {found}/{len(documents)} referenced PDFs found on disk")
 
-    # 3. Write
+    # 3. Build full PDF map (all PDFs on disk, not just question-referenced)
+    pdfs_dir = data_dir / "pdfs"
+    all_pdf_map: dict[str, str] = {}
+    if pdfs_dir.exists():
+        for pdf in sorted(pdfs_dir.glob("*.pdf")):
+            all_pdf_map[pdf.stem] = str(pdf)
+    print(f"  {len(all_pdf_map)} total PDFs on disk")
+
+    # 4. Write
     print(f"writing to {output_dir}/ ...")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     write_jsonl(questions, output_dir / "questions.jsonl")
     write_jsonl(documents, output_dir / "documents.jsonl")
 
-    pdf_map = {d.doc_id: str(d.source_path) for d in documents if d.source_path.exists()}
     (output_dir / "doc_id_to_pdf.json").write_text(
-        json.dumps(pdf_map, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(all_pdf_map, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
     print(f"done:")
     print(f"  {output_dir}/questions.jsonl      ({len(questions)} questions)")
     print(f"  {output_dir}/documents.jsonl      ({len(documents)} documents)")
+    print(f"  {output_dir}/doc_id_to_pdf.json   ({len(all_pdf_map)} PDFs)")
     print(f"  {output_dir}/doc_id_to_pdf.json   ({len(pdf_map)} PDF paths)")
 
 
