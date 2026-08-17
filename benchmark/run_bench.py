@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
-"""E2E benchmark: load dataset → prepare docs → ingest → query → results.
+"""E2E benchmark: load processed dataset → ingest → query → results.
 
 Usage:
-    # Run full pipeline (first 10 questions):
-    python -m benchmark.run_bench run --data-dir benchmark/data --limit 10
+    # Run FinanceBench (first 10 questions):
+    python -m benchmark.run_bench run --dataset financebench --limit 10
 
-    # Run queries only (KB already populated):
-    python -m benchmark.run_bench run --data-dir benchmark/data --skip-ingest
+    # Run EnterpriseRAG:
+    python -m benchmark.run_bench run --dataset enterprise_rag --limit 10
 
-    # Just prepare markdown files (no ingestion or queries):
-    python -m benchmark.run_bench prepare --data-dir benchmark/data
+    # Query only (KB already populated):
+    python -m benchmark.run_bench run --dataset financebench --skip-ingest
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
 
-from benchmark.load_dataset import load_documents, load_questions
-from benchmark.prepare_docs import prepare_all
+from benchmark.ingest import init_kb, ingest_all
+from benchmark.schema import BenchQuestion
+from benchmark.query import run_all
+
 
 app = typer.Typer(add_completion=False)
 
 OUTPUT_DIR = Path("benchmark/output")
+PROCESSED_DIR = Path("benchmark/processed_data")
+KB_ROOT = Path("benchmark/kbs")
 
 
 def _resolve_model(kb_dir: Path, model: str | None) -> str:
@@ -37,68 +42,77 @@ def _resolve_model(kb_dir: Path, model: str | None) -> str:
         return "gpt-4.1"
 
 
-@app.command()
-def prepare(
-    data_dir: Path = typer.Option(Path("benchmark/data"), help="Dataset root"),
-):
-    """Convert dataset JSON docs to markdown (no ingestion)."""
-    questions = load_questions(data_dir)
-    print(f"loaded {len(questions)} questions")
+def _load_processed_questions(dataset_dir: Path) -> list[BenchQuestion]:
+    """Load questions.jsonl from processed data into typed dataclasses."""
+    qf = dataset_dir / "questions.jsonl"
+    if not qf.exists():
+        raise FileNotFoundError(f"{qf} not found — run the standardisation script first")
+    questions: list[BenchQuestion] = []
+    for line in qf.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        q = json.loads(line)
+        questions.append(
+            BenchQuestion(
+                question_id=q["question_id"],
+                question=q["question"],
+                question_type=q.get("question_type", ""),
+                expected_doc_ids=q.get("expected_doc_ids", []),
+                gold_answer=q.get("gold_answer", ""),
+                justification=q.get("justification", ""),
+                answer_facts=q.get("answer_facts", []),
+                evidence=q.get("evidence", []),
+                metadata=q.get("metadata", {}),
+            )
+        )
+    return questions
 
-    needed = {uid for q in questions for uid in q.expected_doc_ids if uid}
-    print(f"loading {len(needed)} referenced documents ...")
-    docs = load_documents(data_dir, needed)
 
-    md_dir = data_dir / "md"
-    uuid_to_md = prepare_all(docs, md_dir)
-    print(f"prepared {len(uuid_to_md)} markdown files in {md_dir}")
+def _load_doc_paths(dataset_dir: Path) -> dict[str, Path]:
+    """Load doc_id → file path mapping from processed data."""
+    for name in ("doc_id_to_pdf.json", "doc_id_to_file.json"):
+        p = dataset_dir / name
+        if p.exists():
+            return {k: Path(v) for k, v in json.loads(p.read_text(encoding="utf-8")).items()}
+    return {}
 
 
 @app.command()
 def run(
-    data_dir: Path = typer.Option(Path("benchmark/data"), help="Dataset root"),
-    kb_dir: Path = typer.Option(Path("/tmp/openkb-bench"), help="KB directory"),
+    dataset: str = typer.Option(..., help="Dataset name (e.g. financebench, enterprise_rag)"),
+    kb_root: Path = typer.Option(KB_ROOT, help="Root for benchmark KBs"),
     limit: int = typer.Option(0, help="Max questions (0=all)"),
     model: str = typer.Option(None, help="LLM model override"),
     skip_ingest: bool = typer.Option(False, help="Skip ingestion"),
-    include_extra: bool = typer.Option(True, help="Include extra_questions.jsonl"),
 ):
-    """Run the full E2E benchmark pipeline."""
-    # 1. Load
-    questions = load_questions(data_dir, include_extra=include_extra)
+    """Run the full E2E benchmark pipeline for a dataset."""
+    dataset_dir = PROCESSED_DIR / dataset
+    questions = _load_processed_questions(dataset_dir)
     if limit > 0:
         questions = questions[:limit]
-    print(f"loaded {len(questions)} questions")
+    print(f"loaded {len(questions)} questions from {dataset}")
 
+    kb_dir = init_kb(kb_root, dataset, model=model)
     resolved_model = _resolve_model(kb_dir, model)
-    results_path = OUTPUT_DIR / "results.jsonl"
+    results_path = OUTPUT_DIR / dataset / "results.jsonl"
 
     if not skip_ingest:
-        # 2. Prepare
-        needed = {uid for q in questions for uid in q.expected_doc_ids if uid}
-        print(f"loading {len(needed)} referenced documents ...")
-        docs = load_documents(data_dir, needed)
+        all_paths = _load_doc_paths(dataset_dir)
+        needed = {d for q in questions for d in q.expected_doc_ids if d}
+        doc_id_to_path = {doc_id: all_paths[doc_id] for doc_id in needed if doc_id in all_paths}
+        missing = needed - set(doc_id_to_path)
+        if missing:
+            print(f"  warning: {len(missing)} docs not in path mapping")
 
-        md_dir = data_dir / "md"
-        print("preparing markdown files ...")
-        uuid_to_md = prepare_all(docs, md_dir)
-        print(f"  {len(uuid_to_md)} docs ready")
-
-        # 3. Ingest
-        from benchmark.ingest import ingest_all
-
-        print("ingesting documents ...")
-        outcomes = ingest_all(uuid_to_md, kb_dir)
+        print(f"ingesting {len(doc_id_to_path)} documents ...")
+        outcomes = ingest_all(doc_id_to_path, kb_dir, resolved_model)
         added = sum(1 for v in outcomes.values() if v == "added")
         failed = sum(1 for v in outcomes.values() if v == "failed")
         print(f"  ingestion done: {added} added, {failed} failed")
 
-    # 4. Query
-    from benchmark.query import run_all
-
-    print("running queries ...")
-    results = run_all(questions, kb_dir, resolved_model, results_path)
-    print(f"done. {len(results)} new results → {results_path}")
+    # print("running queries ...")
+    # results = run_all(questions, kb_dir, resolved_model, results_path)
+    # print(f"done. {len(results)} new results → {results_path}")
 
 
 if __name__ == "__main__":

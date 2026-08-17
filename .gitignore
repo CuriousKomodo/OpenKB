@@ -30,6 +30,7 @@ examples/docs/
 benchmark/output/
 benchmark/data/
 benchmark/processed_data/
+benchmark/kbs/
 
 # Built Workbench web bundle (regenerate with `cd frontend && npm install && npm run build`).
 # Shipped inside the wheel via hatchling `artifacts`, never committed to git.

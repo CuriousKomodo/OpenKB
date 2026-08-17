@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How OpenKB Works — Interactive Explainer</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #d2a8ff;
+    --accent4: #f0883e;
+    --accent5: #f778ba;
+    --red: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  /* Header */
+  .hero { text-align: center; padding: 60px 0 40px; }
+  .hero h1 { font-size: 2.4em; margin-bottom: 8px; }
+  .hero h1 span { color: var(--accent); }
+  .hero .subtitle { color: var(--text-dim); font-size: 1.15em; max-width: 700px; margin: 0 auto; }
+
+  /* Nav tabs */
+  .nav-tabs {
+    display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;
+    margin: 40px 0 32px; position: sticky; top: 0; z-index: 100;
+    background: var(--bg); padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-tab {
+    padding: 10px 20px; border-radius: 8px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.92em; font-weight: 500;
+    transition: all 0.2s;
+  }
+  .nav-tab:hover { border-color: var(--accent); color: var(--text); }
+  .nav-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Sections */
+  .section { display: none; animation: fadeIn 0.35s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  h2 { font-size: 1.6em; margin: 0 0 20px; }
+  h2 .num { color: var(--accent); margin-right: 8px; }
+  h3 { font-size: 1.15em; margin: 24px 0 10px; color: var(--accent3); }
+
+  p, li { color: var(--text); margin-bottom: 10px; }
+  ul { padding-left: 20px; }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin: 16px 0;
+  }
+  .card-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    font-weight: 600; font-size: 1.05em;
+  }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 0.78em; font-weight: 600; letter-spacing: 0.3px;
+  }
+  .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--accent2); }
+  .badge-purple { background: rgba(210,168,255,0.15); color: var(--accent3); }
+  .badge-orange { background: rgba(240,136,62,0.15); color: var(--accent4); }
+  .badge-pink { background: rgba(247,120,186,0.15); color: var(--accent5); }
+
+  /* Flow diagram */
+  .flow { display: flex; flex-direction: column; gap: 0; align-items: center; margin: 28px 0; }
+  .flow-step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 24px; width: 100%; max-width: 680px;
+    cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .flow-step:hover { border-color: var(--accent); transform: scale(1.01); }
+  .flow-step.expanded { border-color: var(--accent); }
+  .flow-step .step-title {
+    font-weight: 600; display: flex; align-items: center; gap: 10px;
+  }
+  .flow-step .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.82em; font-weight: 700; flex-shrink: 0;
+  }
+  .flow-step .step-detail {
+    display: none; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border); color: var(--text-dim);
+    font-size: 0.93em; line-height: 1.7;
+  }
+  .flow-step.expanded .step-detail { display: block; }
+  .flow-arrow {
+    width: 2px; height: 28px; background: var(--border);
+    position: relative;
+  }
+  .flow-arrow::after {
+    content: ''; position: absolute; bottom: -4px; left: -4px;
+    border: 5px solid transparent; border-top-color: var(--border);
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px; margin: 12px 0;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.85em; overflow-x: auto; white-space: pre; line-height: 1.65;
+    color: var(--text-dim);
+  }
+  .code-block .kw { color: var(--accent5); }
+  .code-block .str { color: var(--accent2); }
+  .code-block .cm { color: #6e7681; font-style: italic; }
+  .code-block .fn { color: var(--accent3); }
+  .code-block .acc { color: var(--accent); }
+  .code-block .org { color: var(--accent4); }
+
+  /* Comparison table */
+  .compare-table {
+    width: 100%; border-collapse: collapse; margin: 16px 0;
+    font-size: 0.92em;
+  }
+  .compare-table th, .compare-table td {
+    padding: 12px 16px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table th {
+    color: var(--text-dim); font-weight: 600; font-size: 0.88em;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .compare-table td:first-child { color: var(--accent); font-weight: 500; }
+
+  /* Interactive tree */
+  .tree-container {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin: 16px 0;
+    font-family: 'SF Mono', monospace; font-size: 0.88em;
+  }
+  .tree-node {
+    padding: 4px 0; cursor: pointer; user-select: none;
+  }
+  .tree-node:hover { color: var(--accent); }
+  .tree-node .toggle { display: inline-block; width: 16px; color: var(--text-dim); }
+  .tree-node .node-title { font-weight: 500; }
+  .tree-node .node-pages { color: var(--text-dim); font-size: 0.88em; margin-left: 6px; }
+  .tree-children { padding-left: 24px; overflow: hidden; transition: max-height 0.3s ease; }
+  .tree-children.collapsed { max-height: 0 !important; }
+  .tree-summary {
+    margin: 6px 0 6px 24px; padding: 8px 12px;
+    background: rgba(88,166,255,0.07); border-left: 2px solid var(--accent);
+    border-radius: 0 6px 6px 0; font-family: -apple-system, sans-serif;
+    font-size: 0.9em; color: var(--text-dim); line-height: 1.5;
+  }
+
+  /* Wiki preview */
+  .wiki-preview {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; margin: 16px 0;
+  }
+  .wiki-tab-bar {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border);
+    background: var(--surface); overflow-x: auto;
+  }
+  .wiki-tab {
+    padding: 10px 18px; cursor: pointer; font-size: 0.85em;
+    color: var(--text-dim); border-bottom: 2px solid transparent;
+    white-space: nowrap; transition: all 0.15s;
+  }
+  .wiki-tab:hover { color: var(--text); }
+  .wiki-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .wiki-content {
+    padding: 20px 24px; font-size: 0.92em; line-height: 1.7;
+    min-height: 200px;
+  }
+  .wiki-content .wikilink {
+    color: var(--accent); text-decoration: none; cursor: pointer;
+    border-bottom: 1px dashed var(--accent);
+  }
+  .wiki-content .wikilink:hover { opacity: 0.8; }
+  .wiki-content h4 { margin: 16px 0 8px; color: var(--accent3); }
+  .wiki-content .fm {
+    background: rgba(210,168,255,0.08); border: 1px solid rgba(210,168,255,0.15);
+    border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;
+    font-family: monospace; font-size: 0.88em; color: var(--accent3);
+  }
+
+  /* Animated pipeline */
+  .pipeline-vis {
+    display: flex; align-items: center; gap: 12px; padding: 20px 0;
+    overflow-x: auto; flex-wrap: wrap; justify-content: center;
+  }
+  .pipe-node {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 18px; min-width: 120px;
+    text-align: center; transition: all 0.3s; flex-shrink: 0;
+  }
+  .pipe-node.active-pipe { border-color: var(--accent); box-shadow: 0 0 20px rgba(88,166,255,0.15); }
+  .pipe-node .pipe-icon { font-size: 1.6em; margin-bottom: 6px; }
+  .pipe-node .pipe-label { font-size: 0.82em; font-weight: 600; }
+  .pipe-node .pipe-sub { font-size: 0.72em; color: var(--text-dim); margin-top: 3px; }
+  .pipe-arrow { color: var(--text-dim); font-size: 1.2em; flex-shrink: 0; }
+
+  /* Highlight box */
+  .highlight-box {
+    border-left: 3px solid var(--accent);
+    background: rgba(88,166,255,0.06);
+    padding: 14px 18px; margin: 14px 0; border-radius: 0 8px 8px 0;
+    font-size: 0.93em;
+  }
+  .highlight-box.green { border-left-color: var(--accent2); background: rgba(63,185,80,0.06); }
+  .highlight-box.orange { border-left-color: var(--accent4); background: rgba(240,136,62,0.06); }
+
+  /* Example walkthrough */
+  .example-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  }
+  .example-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5em; background: rgba(88,166,255,0.12);
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .hero h1 { font-size: 1.6em; }
+    .nav-tab { padding: 8px 14px; font-size: 0.82em; }
+    .flow-step { padding: 14px 16px; }
+    .pipeline-vis { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>How <span>OpenKB</span> Works</h1>
+    <p class="subtitle">
+      An interactive deep-dive into how OpenKB compiles raw documents into an interlinked wiki knowledge base
+      using <strong>PageIndex</strong> tree indexing and <strong>LLM reasoning</strong>.
+    </p>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-tabs" id="navTabs">
+    <div class="nav-tab active" data-target="overview">Overview</div>
+    <div class="nav-tab" data-target="pageindex">PageIndex Deep-Dive</div>
+    <div class="nav-tab" data-target="compiler">LLM Compiler Pipeline</div>
+    <div class="nav-tab" data-target="retrieval">Query &amp; Retrieval</div>
+    <div class="nav-tab" data-target="example">Walkthrough Example</div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1: Overview -->
+  <!-- ============================================================ -->
+  <div class="section active" id="overview">
+    <h2><span class="num">#1</span> The Big Picture</h2>
+
+    <p>OpenKB has a fundamentally different approach from traditional RAG (Retrieval-Augmented Generation).
+       Instead of re-deriving knowledge from scratch on every query, it <strong>compiles</strong> documents
+       into a persistent, interlinked wiki — then queries that wiki.</p>
+
+    <div class="card">
+      <table class="compare-table">
+        <tr><th></th><th>Traditional RAG</th><th>OpenKB</th></tr>
+        <tr>
+          <td>Knowledge</td>
+          <td>Re-derived per query from chunks</td>
+          <td>Compiled once into persistent wiki pages</td>
+        </tr>
+        <tr>
+          <td>Retrieval</td>
+          <td>Vector similarity (embedding-based)</td>
+          <td>Vectorless — PageIndex tree + LLM reasoning</td>
+        </tr>
+        <tr>
+          <td>Cross-document</td>
+          <td>No synthesis; chunks are isolated</td>
+          <td>Concept/entity pages link across documents</td>
+        </tr>
+        <tr>
+          <td>Accumulation</td>
+          <td>Nothing compounds</td>
+          <td>Each new doc enriches existing concepts</td>
+        </tr>
+        <tr>
+          <td>Long documents</td>
+          <td>Chunked, loses structure</td>
+          <td>Full hierarchical tree preserved via PageIndex</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>Two-Layer Architecture</h3>
+    <div class="pipeline-vis" id="overviewPipeline">
+      <div class="pipe-node" id="pipe-doc">
+        <div class="pipe-icon">&#x1F4C4;</div>
+        <div class="pipe-label">Documents</div>
+        <div class="pipe-sub">PDF, MD, URL, ...</div>
+      </div>
+      <div class="pipe-arrow">&#x2192;</div>
+      <div class="pipe-node" id="pipe-pi">
+        <div class="pipe-icon">&#x1F333;</div>
+        <div class="pipe-label">PageIndex</div>
+        <div class="pipe-sub">Tree indexing</div>
+      </div>
+      <div class="pipe-arrow">&#x2192;</div>
+      <div class="pipe-node" id="pipe-llm">
+        <div class="pipe-icon">&#x1F9E0;</div>
+        <div class="pipe-label">LLM Compiler</div>
+        <div class="pipe-sub">5-step pipeline</div>
+      </div>
+      <div class="pipe-arrow">&#x2192;</div>
+      <div class="pipe-node" id="pipe-wiki">
+        <div class="pipe-icon">&#x1F4DA;</div>
+        <div class="pipe-label">Wiki KB</div>
+        <div class="pipe-sub">Markdown + links</div>
+      </div>
+      <div class="pipe-arrow">&#x2192;</div>
+      <div class="pipe-node" id="pipe-query">
+        <div class="pipe-icon">&#x1F50D;</div>
+        <div class="pipe-label">Query / Chat</div>
+        <div class="pipe-sub">Reasoning retrieval</div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <strong>Layer 1 — Wiki Foundation:</strong> <code>openkb add</code> ingests documents.
+      PageIndex builds a hierarchical tree for long docs. The LLM compiler produces
+      summaries, concept pages, entity pages, and cross-links.<br>
+      <strong>Layer 2 — Generators:</strong> <code>openkb query</code> / <code>chat</code>
+      use reasoning-based retrieval over the compiled wiki to answer questions.
+    </div>
+
+    <h3>Wiki Structure</h3>
+    <div class="code-block"><span class="cm">wiki/</span>
+├── <span class="str">index.md</span>              <span class="cm"># Catalog of all pages</span>
+├── <span class="str">log.md</span>                <span class="cm"># Chronological operations log</span>
+├── <span class="acc">summaries/</span>            <span class="cm"># One per source document</span>
+│   ├── paper-a.md
+│   └── paper-b.md
+├── <span class="acc">concepts/</span>             <span class="cm"># Cross-document topic synthesis</span>
+│   ├── attention.md
+│   └── transformer.md
+├── <span class="acc">entities/</span>             <span class="cm"># Named things (people, orgs, ...)</span>
+│   ├── anthropic.md
+│   └── google.md
+├── <span class="acc">sources/</span>              <span class="cm"># Raw converted content</span>
+│   ├── paper-a.md        <span class="cm"># Short docs → markdown</span>
+│   ├── paper-b.json      <span class="cm"># Long docs → per-page JSON</span>
+│   └── images/           <span class="cm"># Extracted figures</span>
+└── <span class="acc">explorations/</span>         <span class="cm"># Saved query results</span></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2: PageIndex Deep-Dive -->
+  <!-- ============================================================ -->
+  <div class="section" id="pageindex">
+    <h2><span class="num">#2</span> PageIndex — Vectorless Tree Indexing</h2>
+
+    <p>PageIndex is the core innovation that lets OpenKB handle long documents without vector databases.
+       Instead of chunking a document into flat embedding vectors, PageIndex builds a
+       <strong>hierarchical summary tree</strong> that preserves the document's logical structure.</p>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="badge badge-blue">KEY INSIGHT</span>
+        Why Trees Beat Vectors for Long Documents
+      </div>
+      <p>A 200-page PDF has complex internal structure — chapters, sections, subsections, figures.
+         Vector embeddings flatten this into 512-dimensional points, losing all structural relationships.
+         PageIndex preserves the hierarchy: the LLM can navigate from the table of contents down to
+         the exact page range it needs, just like a human would.</p>
+    </div>
+
+    <h3>How PageIndex Builds the Tree</h3>
+    <div class="flow" id="pageindexFlow">
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(88,166,255,0.15);color:var(--accent)">1</div>
+          PDF Ingestion &amp; Page Extraction
+        </div>
+        <div class="step-detail">
+          The PDF is processed page-by-page. Each page's text content is extracted (via OCR for scanned docs
+          in cloud mode, or pymupdf locally). Images and figures are also extracted and stored separately
+          under <code>wiki/sources/images/</code>. The raw page content is saved as a JSON array in
+          <code>wiki/sources/{doc_name}.json</code>, where each entry has <code>{"page": N, "content": "...", "images": [...]}</code>.
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(63,185,80,0.15);color:var(--accent2)">2</div>
+          LLM-Powered Structure Detection
+        </div>
+        <div class="step-detail">
+          The PageIndex client sends the document to the configured LLM (e.g., GPT-4) which analyzes
+          the document's logical structure — detecting chapters, sections, subsections — and builds a
+          hierarchical tree. Each node gets: a <strong>title</strong>, <strong>start/end page indices</strong>,
+          a <strong>summary</strong> of that section's content, and optional <strong>child nodes</strong>.
+          This is the "reasoning-based" part — the LLM uses its understanding of the document rather than
+          statistical similarity.
+          <div class="code-block"><span class="cm"># IndexConfig controls what the tree contains:</span>
+IndexConfig(
+    <span class="str">if_add_node_text</span>=True,       <span class="cm"># Include node text excerpts</span>
+    <span class="str">if_add_node_summary</span>=True,    <span class="cm"># LLM-generated section summaries</span>
+    <span class="str">if_add_doc_description</span>=True,  <span class="cm"># Overall document description</span>
+)</div>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(210,168,255,0.15);color:var(--accent3)">3</div>
+          Tree Structure Output
+        </div>
+        <div class="step-detail">
+          The result is a JSON tree with <code>doc_name</code>, <code>doc_description</code>, and a
+          recursive <code>structure</code> array. This tree is rendered into a Markdown summary page
+          at <code>wiki/summaries/{doc_name}.md</code> — each node becomes a heading with its page range
+          and summary text. The frontmatter includes <code>doc_type: pageindex</code> and a
+          <code>full_text: sources/{doc_name}.json</code> pointer for deep retrieval.
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(240,136,62,0.15);color:var(--accent4)">4</div>
+          Crash-Safe Persistence
+        </div>
+        <div class="step-detail">
+          All writes go through OpenKB's <strong>mutation system</strong> (<code>mutation.py</code>).
+          Before any write, a <code>MutationSnapshot</code> backs up affected paths. Writes are journaled.
+          If anything fails, the journal triggers an automatic rollback — restoring the KB to its
+          pre-mutation state. This means <code>openkb add</code> is transactional: it either fully
+          succeeds or cleanly rolls back. The PageIndex blob store (under <code>.openkb/files/</code>)
+          is tracked via <code>snapshot.track_new()</code> so orphaned blobs are cleaned up on failure.
+        </div>
+      </div>
+    </div>
+
+    <h3>Interactive: Explore a PageIndex Tree</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;">Click nodes to expand/collapse. This is what a real PageIndex tree looks like for a research paper:</p>
+
+    <div class="tree-container" id="treeDemo"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 3: LLM Compiler Pipeline -->
+  <!-- ============================================================ -->
+  <div class="section" id="compiler">
+    <h2><span class="num">#3</span> The LLM Compiler Pipeline</h2>
+
+    <p>After PageIndex creates the summary tree for long documents (or the converter extracts markdown
+       for short docs), the <strong>compiler</strong> (<code>agent/compiler.py</code>) runs a
+       5-step LLM pipeline that turns raw content into interlinked wiki pages.</p>
+
+    <div class="highlight-box orange">
+      <strong>Prompt Caching Optimization:</strong> The pipeline is designed to exploit Anthropic's prompt
+      caching. The base context (schema + document content) is marked with <code>cache_control: ephemeral</code>
+      and reused across all N+M+2 LLM calls for a single document. This dramatically reduces cost and latency
+      when generating many concept/entity pages from the same document.
+    </div>
+
+    <h3>The 5 Steps (click each to expand)</h3>
+    <div class="flow" id="compilerFlow">
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(88,166,255,0.15);color:var(--accent)">1</div>
+          <span>Build Base Context <span class="badge badge-blue">CACHED</span></span>
+        </div>
+        <div class="step-detail">
+          The system prompt is built from the wiki schema (<code>AGENTS.md</code>) and language setting.
+          The full document content is attached as the user message with a <code>cache_control</code>
+          breakpoint. This base context (system + document) is shared across ALL subsequent LLM calls
+          for this document — the first call pays the input cost, subsequent calls hit the cache.
+          <div class="code-block"><span class="cm"># System message built from schema:</span>
+<span class="str">"You are OpenKB's wiki compilation agent...</span>
+<span class="str"> {schema_md}</span>
+<span class="str"> Write all content in {language} language.</span>
+<span class="str"> Use [[wikilinks]] to connect related pages."</span>
+
+<span class="cm"># User message with document content (cache breakpoint here):</span>
+<span class="str">"New document: {doc_name}</span>
+<span class="str"> Full text: {content}"</span>    <span class="cm">← cache_control: ephemeral</span></div>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(63,185,80,0.15);color:var(--accent2)">2</div>
+          Generate Summary
+        </div>
+        <div class="step-detail">
+          The LLM produces a JSON response with a <code>description</code> (one-liner under 100 chars)
+          and <code>content</code> (full Markdown summary). The summary captures key concepts and findings,
+          with <code>[[wikilinks]]</code> to potential concept pages. For long (PageIndex) documents,
+          the prompt is adapted to work with the tree structure instead of raw text.
+          <div class="code-block"><span class="cm">// LLM returns:</span>
+{
+  <span class="str">"description"</span>: <span class="str">"Introduces the Transformer architecture using self-attention"</span>,
+  <span class="str">"content"</span>: <span class="str">"# Attention Is All You Need\n\nThis paper introduces the **Transformer**,\na sequence transduction model based entirely on [[concepts/attention]]..."</span>
+}</div>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(210,168,255,0.15);color:var(--accent3)">3</div>
+          Plan Concepts &amp; Entities
+        </div>
+        <div class="step-detail">
+          With the summary in context, the LLM sees all existing concept and entity pages (as
+          one-line briefs) and decides what to <strong>create</strong>, <strong>update</strong>,
+          or <strong>cross-link</strong>. The plan separates concepts (abstract ideas) from entities
+          (named things). Rules prevent duplication: "update" is preferred over "create" for existing topics.
+          <div class="code-block"><span class="cm">// LLM plans wiki updates:</span>
+{
+  <span class="str">"concepts"</span>: {
+    <span class="str">"create"</span>: [
+      {<span class="str">"name"</span>: <span class="str">"self-attention"</span>, <span class="str">"title"</span>: <span class="str">"Self-Attention Mechanism"</span>},
+      {<span class="str">"name"</span>: <span class="str">"transformer"</span>, <span class="str">"title"</span>: <span class="str">"Transformer Architecture"</span>}
+    ],
+    <span class="str">"update"</span>: [{<span class="str">"name"</span>: <span class="str">"sequence-modeling"</span>, <span class="str">"title"</span>: <span class="str">"Sequence Modeling"</span>}],
+    <span class="str">"related"</span>: [<span class="str">"neural-networks"</span>]
+  },
+  <span class="str">"entities"</span>: {
+    <span class="str">"create"</span>: [
+      {<span class="str">"name"</span>: <span class="str">"google-brain"</span>, <span class="str">"title"</span>: <span class="str">"Google Brain"</span>, <span class="str">"type"</span>: <span class="str">"organization"</span>}
+    ],
+    <span class="str">"update"</span>: [],
+    <span class="str">"related"</span>: []
+  }
+}</div>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(240,136,62,0.15);color:var(--accent4)">4</div>
+          <span>Generate Pages <span class="badge badge-green">CONCURRENT</span></span>
+        </div>
+        <div class="step-detail">
+          All new and updated concept/entity pages are generated <strong>concurrently</strong> via
+          <code>asyncio.gather</code>. Each page gets its own LLM call, but they all share the cached
+          base context (system + document + summary). New pages get the "write" prompt; updated pages
+          get the "rewrite" prompt that includes the existing page content so the LLM integrates rather
+          than replaces. Entity pages also specify a <code>type</code> field (person, organization, etc.).
+          <div class="highlight-box green">
+            <strong>Wikilink Whitelist:</strong> Before page generation, the compiler sends a message listing
+            ALL valid wikilink targets. The LLM must only use <code>[[links]]</code> to targets in this
+            whitelist — preventing broken links and ghost references. Any concept not yet in the wiki
+            must be written as plain text.
+          </div>
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(247,120,186,0.15);color:var(--accent5)">5</div>
+          Cross-link &amp; Update Index
+        </div>
+        <div class="step-detail">
+          After all pages are generated, code (not LLM) adds <code>[[wikilinks]]</code> from existing
+          concept pages to the new summary, and updates related concept pages with cross-references.
+          The summary itself gets a final LLM rewrite pass to ensure all links match the now-known
+          wikilink whitelist. Finally, <code>index.md</code> is updated with entries for all
+          new/modified pages. The frontmatter on each page is managed by code — never by the LLM.
+          <div class="code-block"><span class="cm"># Frontmatter is code-managed (OKF format):</span>
+---
+<span class="str">type</span>: Concept
+<span class="str">description</span>: The core attention mechanism enabling parallel sequence processing
+<span class="str">sources</span>:
+  - attention-is-all-you-need
+---
+
+<span class="cm"># Cross-ref backlinks are appended by code:</span>
+## Related Documents
+- [[summaries/attention-is-all-you-need]]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 4: Query & Retrieval -->
+  <!-- ============================================================ -->
+  <div class="section" id="retrieval">
+    <h2><span class="num">#4</span> Query &amp; Retrieval — Reasoning, Not Vectors</h2>
+
+    <p>When you run <code>openkb query</code> or <code>openkb chat</code>, the system uses an
+       <strong>agentic retrieval</strong> strategy. The LLM agent reads the wiki like a researcher
+       would — starting from the index, drilling into summaries, then fetching specific page ranges
+       from source documents when needed.</p>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="badge badge-green">AGENT TOOLS</span>
+        The Query Agent's Toolkit
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
+        <div class="highlight-box">
+          <strong><code>read_file(path)</code></strong><br>
+          Read any wiki .md file — index, summaries, concepts, entities.
+        </div>
+        <div class="highlight-box">
+          <strong><code>get_page_content(doc, pages)</code></strong><br>
+          Fetch specific pages from a PageIndex long doc's JSON source.
+        </div>
+        <div class="highlight-box">
+          <strong><code>get_image(path)</code></strong><br>
+          View extracted figures/charts as base64 images.
+        </div>
+        <div class="highlight-box">
+          <strong><code>write_file(path, content)</code></strong><br>
+          Save explorations/analyses to <code>wiki/explorations/</code>.
+        </div>
+      </div>
+    </div>
+
+    <h3>The Retrieval Strategy (from the agent's instructions)</h3>
+    <div class="flow">
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(88,166,255,0.15);color:var(--accent)">1</div>
+          Read <code>index.md</code> — see all docs, concepts, entities
+        </div>
+        <div class="step-detail">
+          The index gives a bird's-eye view: every document with its one-liner description,
+          marked as <code>(short)</code> or <code>(pageindex)</code> to indicate type. The agent
+          decides which summaries and concept pages are relevant to the question.
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(63,185,80,0.15);color:var(--accent2)">2</div>
+          Read relevant summaries &amp; concept pages
+        </div>
+        <div class="step-detail">
+          Summary pages provide the compiled understanding of each document.
+          Concept pages provide cross-document synthesis. For "who/what is X" questions,
+          entity pages are checked first — they're the fastest path to factual answers.
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(210,168,255,0.15);color:var(--accent3)">3</div>
+          Drill into source content when summaries aren't enough
+        </div>
+        <div class="step-detail">
+          Each summary's <code>full_text</code> frontmatter points to the source. For
+          <strong>short docs</strong>: <code>read_file("sources/doc.md")</code>.
+          For <strong>PageIndex docs</strong>: <code>get_page_content("doc", "3-5,12")</code> —
+          the agent uses the tree structure in the summary to target specific page ranges
+          rather than fetching the whole document. This is the "reasoning-based retrieval" —
+          the agent reads the tree, reasons about which sections are relevant, and fetches only those.
+        </div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-step" onclick="toggleStep(this)">
+        <div class="step-title">
+          <div class="step-num" style="background:rgba(240,136,62,0.15);color:var(--accent4)">4</div>
+          Synthesize answer grounded in wiki content
+        </div>
+        <div class="step-detail">
+          The agent produces a clear, concise answer citing specific wiki content.
+          Before each tool call, it outputs a short sentence explaining its reasoning —
+          making the retrieval process transparent and debuggable.
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box green">
+      <strong>Why this works better than vector search:</strong> The agent uses semantic understanding
+      to navigate the document tree — it knows that "methods" are in section 3 and "results" in section 5.
+      Vector search would return the top-K chunks by cosine similarity, potentially missing relevant
+      content that uses different vocabulary but is structurally adjacent.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 5: Walkthrough Example -->
+  <!-- ============================================================ -->
+  <div class="section" id="example">
+    <h2><span class="num">#5</span> Walkthrough: Adding "Attention Is All You Need"</h2>
+
+    <div class="example-header">
+      <div class="example-icon">&#x1F4DD;</div>
+      <div>
+        <strong>Scenario:</strong> You add the famous Transformer paper to your KB.<br>
+        <span style="color:var(--text-dim)">Let's trace exactly what happens at each step.</span>
+      </div>
+    </div>
+
+    <!-- Step 1: The command -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-blue">STEP 1</span> You run the command</div>
+      <div class="code-block">$ openkb add attention-is-all-you-need.pdf</div>
+      <p>The CLI detects this is a PDF and routes to the long-document pipeline (PageIndex).</p>
+    </div>
+
+    <!-- Step 2: Mutation snapshot -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-green">STEP 2</span> Crash-safe mutation begins</div>
+      <p>Before any write, <code>mutation.snapshot_paths()</code> backs up every file that will be touched:</p>
+      <div class="code-block"><span class="cm"># Snapshot targets:</span>
+wiki/index.md                          <span class="cm"># Will be updated with new entries</span>
+wiki/summaries/                        <span class="cm"># New summary page will be created</span>
+wiki/concepts/                         <span class="cm"># New concept pages will be created</span>
+wiki/entities/                         <span class="cm"># New entity pages will be created</span>
+wiki/sources/                          <span class="cm"># Source content will be written</span>
+.openkb/hashes.json                    <span class="cm"># Registry of ingested docs</span>
+
+<span class="cm"># A journal file is written:</span>
+.openkb/journal/a1b2c3d4.json  →  {"status": "active", "operation": "add", ...}</div>
+      <p style="color:var(--text-dim);font-size:0.9em;">If anything fails from here on, the journal triggers automatic rollback.</p>
+    </div>
+
+    <!-- Step 3: PageIndex -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-purple">STEP 3</span> PageIndex builds the tree</div>
+      <p>The <code>PageIndexClient</code> sends the PDF to the LLM for structural analysis:</p>
+      <div class="code-block"><span class="cm"># The LLM analyzes the 15-page paper and produces:</span>
+{
+  <span class="str">"doc_name"</span>: <span class="str">"Attention Is All You Need"</span>,
+  <span class="str">"doc_description"</span>: <span class="str">"Proposes the Transformer, a novel architecture based entirely on attention mechanisms"</span>,
+  <span class="str">"structure"</span>: [
+    {
+      <span class="str">"title"</span>: <span class="str">"Abstract"</span>,
+      <span class="str">"start_index"</span>: 1, <span class="str">"end_index"</span>: 1,
+      <span class="str">"summary"</span>: <span class="str">"Proposes Transformer model achieving 28.4 BLEU on EN-DE translation..."</span>
+    },
+    {
+      <span class="str">"title"</span>: <span class="str">"Introduction"</span>,
+      <span class="str">"start_index"</span>: 1, <span class="str">"end_index"</span>: 2,
+      <span class="str">"summary"</span>: <span class="str">"Motivates moving beyond recurrent models to pure attention..."</span>
+    },
+    {
+      <span class="str">"title"</span>: <span class="str">"Model Architecture"</span>,
+      <span class="str">"start_index"</span>: 2, <span class="str">"end_index"</span>: 5,
+      <span class="str">"summary"</span>: <span class="str">"Encoder-decoder with stacked self-attention and feed-forward layers..."</span>,
+      <span class="str">"nodes"</span>: [
+        {<span class="str">"title"</span>: <span class="str">"Scaled Dot-Product Attention"</span>, <span class="str">"start_index"</span>: 3, <span class="str">"end_index"</span>: 4, <span class="str">"summary"</span>: <span class="str">"..."</span>},
+        {<span class="str">"title"</span>: <span class="str">"Multi-Head Attention"</span>, <span class="str">"start_index"</span>: 4, <span class="str">"end_index"</span>: 4, <span class="str">"summary"</span>: <span class="str">"..."</span>},
+        {<span class="str">"title"</span>: <span class="str">"Positional Encoding"</span>, <span class="str">"start_index"</span>: 5, <span class="str">"end_index"</span>: 5, <span class="str">"summary"</span>: <span class="str">"..."</span>}
+      ]
+    },
+    <span class="cm">// ... Experiments, Results, Conclusion</span>
+  ]
+}</div>
+      <p>Simultaneously, the PDF pages are extracted and saved:</p>
+      <div class="code-block"><span class="cm"># wiki/sources/attention-is-all-you-need.json</span>
+[
+  {<span class="str">"page"</span>: 1, <span class="str">"content"</span>: <span class="str">"Attention Is All You Need\n\nAshish Vaswani..."</span>, <span class="str">"images"</span>: []},
+  {<span class="str">"page"</span>: 2, <span class="str">"content"</span>: <span class="str">"recurrent models typically factor computation..."</span>, <span class="str">"images"</span>: []},
+  {<span class="str">"page"</span>: 3, <span class="str">"content"</span>: <span class="str">"An attention function can be described as..."</span>,
+   <span class="str">"images"</span>: [{<span class="str">"path"</span>: <span class="str">"sources/images/attention-is-all-you-need/p3_img1.png"</span>}]},
+  <span class="cm">// ... pages 4-15</span>
+]</div>
+    </div>
+
+    <!-- Step 4: Compiler -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-orange">STEP 4</span> LLM Compiler — 5-step pipeline</div>
+
+      <h4 style="color:var(--accent);margin:12px 0 8px;">Step 4a: Summary Generation</h4>
+      <p>The LLM reads the PageIndex tree summary and produces a wiki summary page:</p>
+      <div class="code-block"><span class="cm"># LLM output (JSON):</span>
+{
+  <span class="str">"description"</span>: <span class="str">"Introduces the Transformer architecture using self-attention"</span>,
+  <span class="str">"content"</span>: <span class="str">"# Attention Is All You Need\n\nThis paper introduces the **Transformer**,\na novel architecture based entirely on [[concepts/self-attention]] mechanisms,\ndispensing with recurrence and convolutions entirely.\n\n## Key Contributions\n- **Self-attention** as the sole mechanism for computing representations\n- **Multi-head attention** allowing the model to attend to information\n  from different representation subspaces\n- Achieved **28.4 BLEU** on WMT 2014 English-to-German translation\n..."</span>
+}</div>
+
+      <h4 style="color:var(--accent);margin:16px 0 8px;">Step 4b: Concept &amp; Entity Planning</h4>
+      <p>The LLM sees existing concepts (if any) and plans what to create/update:</p>
+      <div class="code-block"><span class="cm"># Existing concepts: (none yet)    ← first document in KB</span>
+<span class="cm"># Existing entities: (none yet)</span>
+
+<span class="cm"># LLM plan output:</span>
+{
+  <span class="str">"concepts"</span>: {
+    <span class="str">"create"</span>: [
+      {<span class="str">"name"</span>: <span class="str">"self-attention"</span>, <span class="str">"title"</span>: <span class="str">"Self-Attention Mechanism"</span>},
+      {<span class="str">"name"</span>: <span class="str">"transformer"</span>, <span class="str">"title"</span>: <span class="str">"Transformer Architecture"</span>}
+    ],
+    <span class="str">"update"</span>: [],
+    <span class="str">"related"</span>: []
+  },
+  <span class="str">"entities"</span>: {
+    <span class="str">"create"</span>: [
+      {<span class="str">"name"</span>: <span class="str">"google-brain"</span>, <span class="str">"title"</span>: <span class="str">"Google Brain"</span>, <span class="str">"type"</span>: <span class="str">"organization"</span>},
+      {<span class="str">"name"</span>: <span class="str">"ashish-vaswani"</span>, <span class="str">"title"</span>: <span class="str">"Ashish Vaswani"</span>, <span class="str">"type"</span>: <span class="str">"person"</span>}
+    ],
+    <span class="str">"update"</span>: [],
+    <span class="str">"related"</span>: []
+  }
+}</div>
+
+      <h4 style="color:var(--accent);margin:16px 0 8px;">Step 4c: Concurrent Page Generation</h4>
+      <p>All 4 pages (2 concepts + 2 entities) are generated <strong>simultaneously</strong> via <code>asyncio.gather</code>:</p>
+      <div class="pipeline-vis">
+        <div class="pipe-node active-pipe"><div class="pipe-label">self-attention</div><div class="pipe-sub">concept / create</div></div>
+        <div class="pipe-node active-pipe"><div class="pipe-label">transformer</div><div class="pipe-sub">concept / create</div></div>
+        <div class="pipe-node active-pipe"><div class="pipe-label">google-brain</div><div class="pipe-sub">entity / create</div></div>
+        <div class="pipe-node active-pipe"><div class="pipe-label">ashish-vaswani</div><div class="pipe-sub">entity / create</div></div>
+      </div>
+      <p style="color:var(--text-dim);font-size:0.9em;">All 4 LLM calls share the cached base context — only the page-specific prompt is new.</p>
+
+      <h4 style="color:var(--accent);margin:16px 0 8px;">Step 4d: Cross-linking &amp; Index Update</h4>
+      <p>Code (not LLM) adds backlinks and updates the index:</p>
+      <div class="code-block"><span class="cm"># index.md gets updated:</span>
+## Documents
+- [[summaries/attention-is-all-you-need]] — Introduces the Transformer architecture using self-attention (pageindex)
+
+## Concepts
+- [[concepts/self-attention]] — The core attention mechanism enabling parallel sequence processing
+- [[concepts/transformer]] — Neural network architecture based entirely on attention mechanisms
+
+## Entities
+- [[entities/google-brain]] (organization) — AI research lab at Google behind the Transformer
+- [[entities/ashish-vaswani]] (person) — Lead author of "Attention Is All You Need"</div>
+    </div>
+
+    <!-- Step 5: Final wiki state -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-pink">STEP 5</span> The compiled wiki</div>
+      <p>Browse the resulting wiki pages:</p>
+
+      <div class="wiki-preview">
+        <div class="wiki-tab-bar" id="wikiTabs">
+          <div class="wiki-tab active" data-page="summary">summaries/attention-is-all-you-need.md</div>
+          <div class="wiki-tab" data-page="concept-attn">concepts/self-attention.md</div>
+          <div class="wiki-tab" data-page="concept-transformer">concepts/transformer.md</div>
+          <div class="wiki-tab" data-page="entity-google">entities/google-brain.md</div>
+          <div class="wiki-tab" data-page="index">index.md</div>
+        </div>
+        <div class="wiki-content" id="wikiContent"></div>
+      </div>
+    </div>
+
+    <!-- Step 6: Query -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-blue">STEP 6</span> Querying the wiki</div>
+      <div class="code-block">$ openkb query <span class="str">"How does multi-head attention work?"</span></div>
+      <p>The query agent's reasoning trace:</p>
+      <div class="code-block"><span class="cm"># Agent reasoning:</span>
+<span class="fn">1.</span> Reading index.md to find relevant documents and concepts.
+   → <span class="acc">read_file("index.md")</span>
+
+<span class="fn">2.</span> The concept "self-attention" looks relevant. Reading it.
+   → <span class="acc">read_file("concepts/self-attention.md")</span>
+
+<span class="fn">3.</span> The summary mentions multi-head attention on pages 4-5. Let me check the source.
+   → <span class="acc">get_page_content("attention-is-all-you-need", "4-5")</span>
+
+<span class="fn">4.</span> There's a figure on page 3 showing the architecture. Let me view it.
+   → <span class="acc">get_image("sources/images/attention-is-all-you-need/p3_img1.png")</span>
+
+<span class="fn">5.</span> Synthesizing answer from wiki content...</div>
+
+      <div class="highlight-box green">
+        <strong>Notice:</strong> The agent navigated the tree structure — it read the summary,
+        saw that "Model Architecture" covers pages 2-5, and targeted exactly pages 4-5 for
+        multi-head attention details. No vector search needed. It also pulled the architecture
+        diagram. This is <strong>reasoning-based retrieval</strong>.
+      </div>
+    </div>
+
+    <!-- Accumulation example -->
+    <div class="card">
+      <div class="card-header"><span class="badge badge-purple">BONUS</span> What happens when you add a second paper?</div>
+      <p>When you add "BERT: Pre-training of Deep Bidirectional Transformers", the compiler sees
+         existing concepts and <strong>updates</strong> them instead of creating duplicates:</p>
+      <div class="code-block"><span class="cm"># The LLM plan now shows:</span>
+{
+  <span class="str">"concepts"</span>: {
+    <span class="str">"create"</span>: [
+      {<span class="str">"name"</span>: <span class="str">"pre-training"</span>, <span class="str">"title"</span>: <span class="str">"Pre-training in NLP"</span>}
+    ],
+    <span class="str">"update"</span>: [
+      {<span class="str">"name"</span>: <span class="str">"self-attention"</span>, <span class="str">"title"</span>: <span class="str">"Self-Attention Mechanism"</span>},  <span class="cm">← UPDATE, not create!</span>
+      {<span class="str">"name"</span>: <span class="str">"transformer"</span>, <span class="str">"title"</span>: <span class="str">"Transformer Architecture"</span>}   <span class="cm">← UPDATE, not create!</span>
+    ],
+    <span class="str">"related"</span>: []
+  },
+  ...
+}</div>
+      <p>The existing concept pages are <strong>rewritten</strong> to integrate BERT's perspective —
+         the "self-attention" page now covers both the original Transformer and BERT's bidirectional
+         variant. <strong>Knowledge compounds.</strong></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// === Tab Navigation ===
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.target).classList.add('active');
+  });
+});
+
+// === Flow step toggle ===
+function toggleStep(el) {
+  el.classList.toggle('expanded');
+}
+
+// === PageIndex Tree Demo ===
+const treeData = {
+  title: "Attention Is All You Need",
+  pages: "1-15",
+  summary: "Proposes the Transformer, a sequence transduction model based entirely on attention mechanisms, achieving state-of-the-art results on machine translation tasks.",
+  children: [
+    { title: "Abstract", pages: "1", summary: "Proposes Transformer model. Achieves 28.4 BLEU on EN-DE and 41.8 BLEU on EN-FR translation, outperforming all existing models including ensembles." },
+    { title: "Introduction", pages: "1-2", summary: "Motivates moving beyond recurrent models (RNNs, LSTMs) to pure attention. Recurrence prevents parallelization; attention removes this constraint." },
+    {
+      title: "Model Architecture",
+      pages: "2-5",
+      summary: "Full encoder-decoder architecture using stacked self-attention and point-wise fully connected layers. No recurrence or convolution.",
+      children: [
+        { title: "Encoder and Decoder Stacks", pages: "2-3", summary: "Encoder: 6 identical layers, each with multi-head self-attention + feed-forward. Decoder: adds masked attention over encoder output." },
+        {
+          title: "Attention",
+          pages: "3-4",
+          summary: "Defines attention as mapping queries, keys, and values to an output.",
+          children: [
+            { title: "Scaled Dot-Product Attention", pages: "3-4", summary: "Attention(Q,K,V) = softmax(QK^T / sqrt(d_k))V. Scaling prevents softmax saturation for large d_k." },
+            { title: "Multi-Head Attention", pages: "4", summary: "Projects Q, K, V h times with different learned projections, applies attention in parallel, concatenates and projects. h=8 heads, d_k=d_v=64." }
+          ]
+        },
+        { title: "Position-wise Feed-Forward Networks", pages: "5", summary: "FFN(x) = max(0, xW1+b1)W2+b2. Two linear transformations with ReLU. d_ff=2048." },
+        { title: "Positional Encoding", pages: "5", summary: "Sinusoidal functions of position since the model has no recurrence. Allows the model to learn relative positions." }
+      ]
+    },
+    { title: "Why Self-Attention", pages: "6", summary: "Compares self-attention to recurrent and convolutional layers on complexity, sequential operations, and maximum path length." },
+    {
+      title: "Training",
+      pages: "7-8",
+      summary: "Training setup and regularization techniques.",
+      children: [
+        { title: "Training Data and Batching", pages: "7", summary: "WMT 2014 EN-DE (4.5M pairs) and EN-FR (36M pairs). Byte-pair encoding." },
+        { title: "Optimizer", pages: "7", summary: "Adam with custom learning rate schedule: warmup + inverse square root decay." },
+        { title: "Regularization", pages: "8", summary: "Residual dropout (P=0.1), label smoothing (epsilon=0.1)." }
+      ]
+    },
+    { title: "Results", pages: "8-9", summary: "Transformer (big) achieves 28.4 BLEU (EN-DE), 41.0 BLEU (EN-FR). Outperforms all previous single models and ensembles." },
+    { title: "Conclusion", pages: "10", summary: "First sequence transduction model based entirely on attention. Plans to apply to other modalities (images, audio, video)." }
+  ]
+};
+
+function renderTree(node, depth = 0) {
+  const hasChildren = node.children && node.children.length > 0;
+  const toggle = hasChildren ? '<span class="toggle">&#x25BC;</span>' : '<span class="toggle">&nbsp;</span>';
+  let html = `<div class="tree-node" data-depth="${depth}" onclick="toggleTreeNode(event, this)">
+    ${toggle}<span class="node-title">${node.title}</span><span class="node-pages">(p. ${node.pages})</span>
+  </div>
+  <div class="tree-summary">${node.summary}</div>`;
+  if (hasChildren) {
+    html += `<div class="tree-children" style="max-height:2000px">`;
+    for (const child of node.children) {
+      html += renderTree(child, depth + 1);
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function toggleTreeNode(e, el) {
+  e.stopPropagation();
+  const children = el.nextElementSibling?.nextElementSibling;
+  if (children && children.classList.contains('tree-children')) {
+    children.classList.toggle('collapsed');
+    const toggle = el.querySelector('.toggle');
+    if (toggle) toggle.innerHTML = children.classList.contains('collapsed') ? '&#x25B6;' : '&#x25BC;';
+  }
+}
+
+document.getElementById('treeDemo').innerHTML = renderTree(treeData);
+
+// === Wiki Preview ===
+const wikiPages = {
+  summary: `<div class="fm">---<br>type: Summary<br>description: Introduces the Transformer architecture using self-attention<br>doc_type: pageindex<br>full_text: sources/attention-is-all-you-need.json<br>---</div>
+<h4>Attention Is All You Need</h4>
+<p>This paper introduces the <strong>Transformer</strong>, a novel neural network architecture based entirely on <a class="wikilink">[[concepts/self-attention]]</a> mechanisms, dispensing with recurrence and convolutions entirely.</p>
+<h4>Key Contributions</h4>
+<ul>
+<li><strong>Self-attention</strong> as the sole mechanism for computing representations of input and output sequences</li>
+<li><strong>Multi-head attention</strong> allowing the model to attend to information from different representation subspaces at different positions</li>
+<li>Achieved <strong>28.4 BLEU</strong> on WMT 2014 English-to-German and <strong>41.8 BLEU</strong> on English-to-French translation</li>
+</ul>
+<h4>Architecture</h4>
+<p>The <a class="wikilink">[[concepts/transformer]]</a> follows an encoder-decoder structure with stacked layers. Each encoder layer has two sub-layers: multi-head self-attention and a position-wise feed-forward network. The decoder adds a third sub-layer for cross-attention over the encoder output.</p>
+<p>Developed by researchers at <a class="wikilink">[[entities/google-brain]]</a> and Google Research.</p>
+<h4>Related Documents</h4>
+<p>(first document in this KB)</p>`,
+
+  'concept-attn': `<div class="fm">---<br>type: Concept<br>description: The core attention mechanism enabling parallel sequence processing<br>sources:<br>&nbsp;&nbsp;- attention-is-all-you-need<br>---</div>
+<h4>Self-Attention Mechanism</h4>
+<p>Self-attention (also called intra-attention) is a mechanism that relates different positions of a single sequence to compute a representation of the sequence. It is the fundamental building block of the <a class="wikilink">[[concepts/transformer]]</a> architecture.</p>
+<h4>Scaled Dot-Product Attention</h4>
+<p>The attention function maps a query and a set of key-value pairs to an output:</p>
+<p><code>Attention(Q, K, V) = softmax(QK<sup>T</sup> / sqrt(d_k)) V</code></p>
+<p>The scaling factor <code>1/sqrt(d_k)</code> prevents the dot products from growing too large, which would push the softmax into regions with extremely small gradients.</p>
+<h4>Multi-Head Attention</h4>
+<p>Rather than performing a single attention function, queries, keys, and values are linearly projected <em>h</em> times with different learned projections. Attention is applied to each projection in parallel, and the results are concatenated and projected again. The paper uses h=8 heads with d_k = d_v = 64.</p>
+<h4>Related Documents</h4>
+<p><a class="wikilink">[[summaries/attention-is-all-you-need]]</a></p>`,
+
+  'concept-transformer': `<div class="fm">---<br>type: Concept<br>description: Neural network architecture based entirely on attention mechanisms<br>sources:<br>&nbsp;&nbsp;- attention-is-all-you-need<br>---</div>
+<h4>Transformer Architecture</h4>
+<p>The Transformer is a neural network architecture for sequence transduction that relies entirely on <a class="wikilink">[[concepts/self-attention]]</a> to draw global dependencies between input and output, dispensing with recurrence and convolutions.</p>
+<h4>Architecture</h4>
+<p>The model follows an encoder-decoder structure:</p>
+<ul>
+<li><strong>Encoder:</strong> 6 identical layers, each with multi-head self-attention and position-wise feed-forward networks, with residual connections and layer normalization.</li>
+<li><strong>Decoder:</strong> 6 identical layers adding masked multi-head attention over the encoder output, preventing positions from attending to subsequent positions.</li>
+</ul>
+<h4>Positional Encoding</h4>
+<p>Since the model contains no recurrence, positional information is injected using sinusoidal functions of different frequencies, allowing the model to learn relative positions.</p>
+<h4>Impact</h4>
+<p>Developed at <a class="wikilink">[[entities/google-brain]]</a>, the Transformer has become the foundation for virtually all modern language models including BERT, GPT, and their successors.</p>
+<h4>Related Documents</h4>
+<p><a class="wikilink">[[summaries/attention-is-all-you-need]]</a></p>`,
+
+  'entity-google': `<div class="fm">---<br>type: Organization<br>description: AI research lab at Google behind the Transformer<br>sources:<br>&nbsp;&nbsp;- attention-is-all-you-need<br>---</div>
+<h4>Google Brain</h4>
+<p>Google Brain is a deep learning research team at Google (now part of Google DeepMind). The team was responsible for developing the <a class="wikilink">[[concepts/transformer]]</a> architecture in collaboration with Google Research.</p>
+<h4>Key Contributions</h4>
+<ul>
+<li>Co-authored "Attention Is All You Need" (<a class="wikilink">[[summaries/attention-is-all-you-need]]</a>)</li>
+<li>Introduced the <a class="wikilink">[[concepts/self-attention]]</a> based architecture that would become the foundation of modern NLP</li>
+</ul>`,
+
+  index: `<h4># Knowledge Base Index</h4>
+<h4>## Documents</h4>
+<p>- <a class="wikilink">[[summaries/attention-is-all-you-need]]</a> &mdash; Introduces the Transformer architecture using self-attention (pageindex)</p>
+<h4>## Concepts</h4>
+<p>- <a class="wikilink">[[concepts/self-attention]]</a> &mdash; The core attention mechanism enabling parallel sequence processing<br>
+- <a class="wikilink">[[concepts/transformer]]</a> &mdash; Neural network architecture based entirely on attention mechanisms</p>
+<h4>## Entities</h4>
+<p>- <a class="wikilink">[[entities/google-brain]]</a> (organization) &mdash; AI research lab at Google behind the Transformer<br>
+- <a class="wikilink">[[entities/ashish-vaswani]]</a> (person) &mdash; Lead author of "Attention Is All You Need"</p>
+<h4>## Explorations</h4>
+<p><em>(none yet)</em></p>`
+};
+
+function showWikiPage(page) {
+  document.querySelectorAll('.wiki-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.wiki-tab[data-page="${page}"]`).classList.add('active');
+  document.getElementById('wikiContent').innerHTML = wikiPages[page];
+}
+showWikiPage('summary');
+
+document.querySelectorAll('.wiki-tab').forEach(tab => {
+  tab.addEventListener('click', () => showWikiPage(tab.dataset.page));
+});
+
+// === Pipeline Animation ===
+let pipeStep = 0;
+const pipeNodes = document.querySelectorAll('#overviewPipeline .pipe-node');
+setInterval(() => {
+  pipeNodes.forEach(n => n.classList.remove('active-pipe'));
+  pipeNodes[pipeStep % pipeNodes.length].classList.add('active-pipe');
+  pipeStep++;
+}, 2000);
+</script>
+
+</body>
+</html>

@@ -7,6 +7,8 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from openkb.agent.query import run_query
+
 from benchmark.schema import BenchQuestion, BenchResult
 
 
@@ -25,8 +27,6 @@ def _load_answered(results_path: Path) -> set[str]:
 
 
 async def _query_one(question: str, kb_dir: Path, model: str) -> str:
-    from openkb.agent.query import run_query
-
     return await run_query(question, kb_dir, model, stream=False)
 
 
