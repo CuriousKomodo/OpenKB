@@ -31,15 +31,10 @@ PROCESSED_DIR = Path("benchmark/processed_data")
 KB_ROOT = Path("benchmark/kbs")
 
 
-def _resolve_model(kb_dir: Path, model: str | None) -> str:
-    if model:
-        return model
-    try:
-        from openkb.config import resolve_effective_config
+def _resolve_model(kb_dir: Path) -> str:
+    from openkb.config import resolve_effective_config
 
-        return resolve_effective_config(kb_dir)[0].get("model", "gpt-4.1")
-    except Exception:
-        return "gpt-4.1"
+    return resolve_effective_config(kb_dir)[0].get("model", "gpt-4.1")
 
 
 def _load_processed_questions(dataset_dir: Path) -> list[BenchQuestion]:
@@ -82,7 +77,6 @@ def run(
     dataset: str = typer.Option(..., help="Dataset name (e.g. financebench, enterprise_rag)"),
     kb_root: Path = typer.Option(KB_ROOT, help="Root for benchmark KBs"),
     limit: int = typer.Option(0, help="Max questions (0=all)"),
-    model: str = typer.Option(None, help="LLM model override"),
     skip_ingest: bool = typer.Option(False, help="Skip ingestion"),
 ):
     """Run the full E2E benchmark pipeline for a dataset."""
@@ -92,8 +86,8 @@ def run(
         questions = questions[:limit]
     print(f"loaded {len(questions)} questions from {dataset}")
 
-    kb_dir = init_kb(kb_root, dataset, model=model)
-    resolved_model = _resolve_model(kb_dir, model)
+    kb_dir = init_kb(kb_root, dataset)
+    resolved_model = _resolve_model(kb_dir)
     results_path = OUTPUT_DIR / dataset / "results.jsonl"
 
     if not skip_ingest:

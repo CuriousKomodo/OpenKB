@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
+
 from typing import Literal
 
 from openkb.agent.compiler import compile_long_doc, compile_short_doc
@@ -37,16 +38,16 @@ DEFAULT_PAGEINDEX_THRESHOLD = 20
 DEFAULT_COMPILE_CONCURRENCY = 4
 
 
+
 # ---------------------------------------------------------------------------
 # KB initialisation
 # ---------------------------------------------------------------------------
 
 
-def init_kb(kb_root: Path, dataset_name: str, *, model: str | None = None) -> Path:
+def init_kb(kb_root: Path, dataset_name: str) -> Path:
     """Initialise a KB directory for a benchmark dataset. Returns kb_dir.
 
-    If ``model`` is provided, writes it to ``.openkb/config.yaml`` so all
-    OpenKB functions (including PageIndex) pick it up automatically.
+    Configure the model and concurrency in .openkb/config.yaml after init.
     """
     kb_dir = kb_root / dataset_name
     openkb_dir = kb_dir / ".openkb"
@@ -56,10 +57,6 @@ def init_kb(kb_root: Path, dataset_name: str, *, model: str | None = None) -> Pa
         wiki_dir = kb_dir / "wiki"
         wiki_dir.mkdir(exist_ok=True)
         (wiki_dir / "index.md").write_text(INDEX_SEED, encoding="utf-8")
-    # Always update config if model is specified (may differ between runs)
-    if model:
-        config_path = openkb_dir / "config.yaml"
-        config_path.write_text(f"model: {model}\n", encoding="utf-8")
     return kb_dir
 
 
