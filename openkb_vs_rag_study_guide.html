@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenKB vs RAG - Interactive Study Guide</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2e3347;
+    --text: #e1e4ed;
+    --text-dim: #8b90a5;
+    --accent: #6c8cff;
+    --accent-dim: #4a6ae0;
+    --green: #4ade80;
+    --green-dim: #166534;
+    --red: #f87171;
+    --red-dim: #7f1d1d;
+    --amber: #fbbf24;
+    --amber-dim: #78350f;
+    --purple: #a78bfa;
+    --cyan: #22d3ee;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Navigation ── */
+  .top-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(15,17,23,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .top-nav .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; }
+  .top-nav .logo span { color: var(--accent); }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    padding: 6px 16px; border-radius: 8px; cursor: pointer;
+    font-size: 0.85rem; font-weight: 500; color: var(--text-dim);
+    transition: all 0.2s; border: none; background: none;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--surface2); }
+  .nav-tab.active { color: var(--accent); background: rgba(108,140,255,0.1); }
+  .score-pill {
+    font-size: 0.8rem; padding: 4px 14px; border-radius: 20px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--amber); font-weight: 600;
+  }
+
+  /* ── Main ── */
+  main { max-width: 960px; margin: 0 auto; padding: 80px 1.5rem 4rem; }
+
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 1.4rem; font-weight: 700; margin: 2rem 0 1rem; letter-spacing: -0.02em; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: var(--purple); }
+  p, li { color: var(--text-dim); font-size: 0.95rem; }
+  p { margin-bottom: 1rem; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent-dim); }
+  .card-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 0.5rem;
+  }
+  .label-openkb { color: var(--cyan); }
+  .label-rag { color: var(--purple); }
+
+  /* ── Comparison Table ── */
+  .cmp-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1rem 0 1.5rem; }
+  .cmp-table th, .cmp-table td {
+    padding: 10px 14px; text-align: left; font-size: 0.88rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .cmp-table th {
+    background: var(--surface2); color: var(--text-dim);
+    font-weight: 600; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.06em; position: sticky; top: 56px; z-index: 5;
+  }
+  .cmp-table th:first-child { border-radius: 8px 0 0 0; }
+  .cmp-table th:last-child { border-radius: 0 8px 0 0; }
+  .cmp-table td { color: var(--text-dim); }
+  .cmp-table tr:hover td { background: rgba(108,140,255,0.04); }
+  .win { color: var(--green) !important; font-weight: 600; }
+  .lose { color: var(--red) !important; }
+  .neutral { color: var(--amber) !important; }
+
+  /* ── Meters ── */
+  .meter-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .meter-label { width: 160px; font-size: 0.85rem; color: var(--text-dim); flex-shrink: 0; }
+  .meter-track {
+    flex: 1; height: 8px; border-radius: 4px; background: var(--surface2); overflow: hidden;
+    position: relative;
+  }
+  .meter-fill {
+    height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+  }
+  .meter-val { width: 36px; text-align: right; font-size: 0.8rem; font-weight: 600; color: var(--text); }
+
+  /* ── Flashcards ── */
+  .flashcard-container { perspective: 1000px; margin: 1rem 0; }
+  .flashcard {
+    width: 100%; min-height: 220px; cursor: pointer; position: relative;
+    transform-style: preserve-3d; transition: transform 0.5s;
+  }
+  .flashcard.flipped { transform: rotateY(180deg); }
+  .flashcard-face {
+    position: absolute; inset: 0; backface-visibility: hidden;
+    border-radius: 12px; padding: 2rem; display: flex;
+    flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+  }
+  .flashcard-front {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+  }
+  .flashcard-back {
+    background: linear-gradient(135deg, #1e2340 0%, #1a1d27 100%);
+    border: 1px solid var(--accent-dim);
+    transform: rotateY(180deg);
+  }
+  .flashcard-front h3 { color: var(--accent); margin: 0 0 0.5rem; font-size: 1.1rem; }
+  .flashcard-front p { color: var(--text-dim); font-size: 0.95rem; margin: 0; }
+  .flashcard-back p { color: var(--text); font-size: 0.95rem; margin: 0; line-height: 1.7; }
+  .flashcard-hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 1rem; opacity: 0.5; }
+  .fc-nav { display: flex; justify-content: center; gap: 12px; margin-top: 1rem; }
+  .fc-nav button {
+    padding: 8px 20px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer;
+    font-size: 0.85rem; font-weight: 500; transition: all 0.2s;
+  }
+  .fc-nav button:hover { border-color: var(--accent); color: var(--accent); }
+  .fc-counter { text-align: center; font-size: 0.8rem; color: var(--text-dim); margin-top: 8px; }
+
+  /* ── Quiz ── */
+  .quiz-q {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem;
+  }
+  .quiz-q p { color: var(--text); font-weight: 600; margin-bottom: 1rem; font-size: 0.95rem; }
+  .quiz-option {
+    display: block; width: 100%; text-align: left; padding: 10px 16px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text-dim); cursor: pointer; margin-bottom: 6px;
+    font-size: 0.9rem; transition: all 0.2s;
+  }
+  .quiz-option:hover:not(.picked) { border-color: var(--accent-dim); color: var(--text); }
+  .quiz-option.correct { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+  .quiz-option.wrong { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+  .quiz-option.picked { cursor: default; }
+  .quiz-explanation {
+    margin-top: 10px; padding: 10px 14px; border-radius: 8px;
+    font-size: 0.85rem; line-height: 1.6; display: none;
+    background: rgba(108,140,255,0.06); border-left: 3px solid var(--accent);
+    color: var(--text-dim);
+  }
+  .quiz-explanation.show { display: block; animation: fadeIn 0.3s ease; }
+  .quiz-actions { display: flex; gap: 12px; margin-top: 1.5rem; justify-content: center; }
+  .btn {
+    padding: 10px 24px; border-radius: 10px; border: none;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dim); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); }
+
+  /* ── Diagram ── */
+  .diagram-wrap {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 2rem; margin: 1.5rem 0; overflow-x: auto;
+  }
+  .pipeline { display: flex; align-items: center; gap: 0; flex-wrap: wrap; justify-content: center; }
+  .pipe-step {
+    padding: 12px 18px; border-radius: 10px; font-size: 0.82rem; font-weight: 600;
+    white-space: nowrap; cursor: default; transition: transform 0.2s;
+    border: 1px solid var(--border);
+  }
+  .pipe-step:hover { transform: translateY(-2px); }
+  .pipe-arrow { color: var(--text-dim); font-size: 1.2rem; margin: 0 4px; flex-shrink: 0; }
+  .pipe-openkb { background: rgba(34,211,238,0.1); color: var(--cyan); border-color: rgba(34,211,238,0.3); }
+  .pipe-rag { background: rgba(167,139,250,0.1); color: var(--purple); border-color: rgba(167,139,250,0.3); }
+  .pipe-shared { background: rgba(251,191,36,0.1); color: var(--amber); border-color: rgba(251,191,36,0.3); }
+
+  /* ── Tags ── */
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 6px;
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .tag-green { background: var(--green-dim); color: var(--green); }
+  .tag-red { background: var(--red-dim); color: var(--red); }
+  .tag-amber { background: var(--amber-dim); color: var(--amber); }
+
+  /* ── Accordion ── */
+  .accordion { margin: 1rem 0; }
+  .acc-header {
+    width: 100%; text-align: left; padding: 14px 18px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex;
+    justify-content: space-between; align-items: center; transition: all 0.2s;
+    margin-bottom: 2px;
+  }
+  .acc-header:hover { border-color: var(--accent-dim); }
+  .acc-header .chevron { transition: transform 0.3s; font-size: 0.8rem; color: var(--text-dim); }
+  .acc-header.open .chevron { transform: rotate(180deg); }
+  .acc-body {
+    max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+    padding: 0 18px;
+  }
+  .acc-body.open { max-height: 800px; padding: 14px 18px; }
+  .acc-body p, .acc-body li { font-size: 0.88rem; }
+  .acc-body ul { padding-left: 1.2rem; margin: 0.5rem 0; }
+  .acc-body li { margin-bottom: 4px; }
+
+  /* ── Compiler Pipeline ── */
+  .compiler-steps { position: relative; padding-left: 36px; margin: 1.5rem 0; }
+  .compiler-steps::before {
+    content: ''; position: absolute; left: 15px; top: 0; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .step-node {
+    position: relative; margin-bottom: 1.5rem; cursor: pointer;
+  }
+  .step-dot {
+    position: absolute; left: -36px; top: 4px; width: 32px; height: 32px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; z-index: 2;
+    border: 2px solid var(--border); background: var(--bg); color: var(--text-dim);
+    transition: all 0.3s;
+  }
+  .step-node.active .step-dot,
+  .step-node:hover .step-dot {
+    border-color: var(--cyan); color: var(--cyan);
+    box-shadow: 0 0 12px rgba(34,211,238,0.25);
+  }
+  .step-node.done .step-dot {
+    border-color: var(--green); color: var(--green); background: var(--green-dim);
+  }
+  .step-header {
+    font-weight: 700; font-size: 1rem; color: var(--text); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .step-header .step-badge {
+    font-size: 0.65rem; padding: 2px 8px; border-radius: 5px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .badge-llm { background: rgba(108,140,255,0.15); color: var(--accent); }
+  .badge-code { background: rgba(74,222,128,0.15); color: var(--green); }
+  .badge-both { background: rgba(251,191,36,0.15); color: var(--amber); }
+  .step-desc { color: var(--text-dim); font-size: 0.88rem; }
+  .step-detail {
+    max-height: 0; overflow: hidden; transition: max-height 0.4s ease;
+    margin-top: 0;
+  }
+  .step-detail.open { max-height: 1200px; margin-top: 10px; }
+  .step-detail-inner {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem; font-size: 0.88rem;
+  }
+  .step-detail-inner p { margin-bottom: 0.75rem; }
+  .step-detail-inner ul { padding-left: 1.2rem; margin: 0.5rem 0; }
+  .step-detail-inner li { margin-bottom: 4px; color: var(--text-dim); }
+  .step-detail-inner code {
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+    font-size: 0.82rem; color: var(--cyan); font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .step-detail-inner .json-preview {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 16px; margin: 10px 0; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); overflow-x: auto;
+    white-space: pre;
+  }
+  .step-detail-inner .json-preview .jk { color: var(--accent); }
+  .step-detail-inner .json-preview .js { color: var(--green); }
+  .step-detail-inner .json-preview .jc { color: var(--text-dim); font-style: italic; }
+  .step-controls { display: flex; justify-content: center; gap: 10px; margin: 1.5rem 0; }
+  .step-controls button {
+    padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer;
+    font-size: 0.85rem; font-weight: 500; transition: all 0.2s;
+  }
+  .step-controls button:hover { border-color: var(--cyan); color: var(--cyan); }
+  .step-controls button.active-ctrl { border-color: var(--cyan); color: var(--cyan); background: rgba(34,211,238,0.08); }
+
+  .cache-diagram {
+    display: flex; align-items: stretch; gap: 0; margin: 1rem 0; border-radius: 10px;
+    overflow: hidden; border: 1px solid var(--border);
+  }
+  .cache-block {
+    padding: 14px 16px; text-align: center; font-size: 0.78rem; font-weight: 600;
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    min-width: 100px;
+  }
+  .cache-block small { font-weight: 400; font-size: 0.7rem; opacity: 0.7; }
+  .cache-hit { background: rgba(34,211,238,0.12); color: var(--cyan); border-right: 1px solid var(--border); }
+  .cache-miss { background: rgba(167,139,250,0.1); color: var(--purple); }
+
+  .cost-bar-wrap { margin: 8px 0; }
+  .cost-bar-label { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .cost-bar-track { height: 10px; border-radius: 5px; background: var(--surface2); overflow: hidden; }
+  .cost-bar-fill { height: 100%; border-radius: 5px; transition: width 1s ease; }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .top-nav { padding: 0 1rem; }
+    .nav-tab { padding: 6px 10px; font-size: 0.78rem; }
+    main { padding: 72px 1rem 3rem; }
+    h1 { font-size: 1.5rem; }
+    .pipeline { flex-direction: column; gap: 6px; }
+    .pipe-arrow { transform: rotate(90deg); margin: 2px 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ NAV ═══════ -->
+<nav class="top-nav">
+  <div class="logo">OpenKB <span>vs</span> RAG</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="overview">Overview</button>
+    <button class="nav-tab" data-tab="compiler">Compiler</button>
+    <button class="nav-tab" data-tab="deep-dive">Deep Dive</button>
+    <button class="nav-tab" data-tab="flashcards">Flashcards</button>
+    <button class="nav-tab" data-tab="quiz">Quiz</button>
+  </div>
+  <div class="score-pill" id="scorePill">Score: 0 / 0</div>
+</nav>
+
+<!-- ═══════ OVERVIEW ═══════ -->
+<main>
+<section class="section active" id="sec-overview">
+  <h1>OpenKB <span>vs</span> RAG</h1>
+  <p>An interactive study guide comparing two knowledge retrieval paradigms: <strong style="color:var(--cyan)">OpenKB</strong> (compile-then-query) and <strong style="color:var(--purple)">RAG</strong> (retrieve-then-generate).</p>
+
+  <!-- Pipelines -->
+  <h2>Architecture at a Glance</h2>
+
+  <div class="diagram-wrap">
+    <p style="margin-bottom:12px; font-weight:600; color:var(--cyan); font-size:0.85rem;">OpenKB Pipeline</p>
+    <div class="pipeline">
+      <div class="pipe-step pipe-openkb">Raw Docs</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-openkb">PageIndex Tree</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-openkb">LLM Compiler</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-openkb">Wiki (summaries, concepts, entities)</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-shared">LLM Agent navigates wiki</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-shared">Answer</div>
+    </div>
+  </div>
+
+  <div class="diagram-wrap">
+    <p style="margin-bottom:12px; font-weight:600; color:var(--purple); font-size:0.85rem;">RAG Pipeline</p>
+    <div class="pipeline">
+      <div class="pipe-step pipe-rag">Raw Docs</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-rag">Chunk + Embed</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-rag">Vector DB</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-rag">ANN Search + Rerank</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-shared">LLM generates answer</div>
+      <span class="pipe-arrow">&rarr;</span>
+      <div class="pipe-step pipe-shared">Answer</div>
+    </div>
+  </div>
+
+  <h2>Head-to-Head Comparison</h2>
+  <table class="cmp-table">
+    <thead>
+      <tr><th>Dimension</th><th>OpenKB</th><th>RAG</th><th>Winner</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Ingestion cost</td><td class="lose">$$$$ (many LLM calls)</td><td class="win">$ (embed only)</td><td><span class="tag tag-green">RAG</span></td></tr>
+      <tr><td>Ingestion latency</td><td class="lose">Minutes / doc</td><td class="win">Seconds / doc</td><td><span class="tag tag-green">RAG</span></td></tr>
+      <tr><td>Retrieval latency</td><td class="lose">5-30s (multi-turn agent)</td><td class="win">&lt;1s vector; 1-5s w/ reranker</td><td><span class="tag tag-green">RAG</span></td></tr>
+      <tr><td>Single-doc accuracy</td><td class="neutral">Good</td><td class="neutral">Good (w/ reranker)</td><td><span class="tag tag-amber">Tie</span></td></tr>
+      <tr><td>Cross-doc synthesis</td><td class="win">Excellent (pre-compiled)</td><td class="lose">Poor (ad-hoc at query time)</td><td><span class="tag tag-green">OpenKB</span></td></tr>
+      <tr><td>Entity tracking</td><td class="win">Dedicated entity pages</td><td class="lose">Scattered across chunks</td><td><span class="tag tag-green">OpenKB</span></td></tr>
+      <tr><td>Contradiction detection</td><td class="win">Built-in LLM linter</td><td class="lose">None by default</td><td><span class="tag tag-green">OpenKB</span></td></tr>
+      <tr><td>Scalability (100K+ docs)</td><td class="lose">Challenging</td><td class="win">Well-proven</td><td><span class="tag tag-green">RAG</span></td></tr>
+      <tr><td>Incremental updates</td><td class="lose">Expensive (recompile)</td><td class="win">Cheap (re-embed)</td><td><span class="tag tag-green">RAG</span></td></tr>
+      <tr><td>Browsable knowledge</td><td class="win">Full wiki output</td><td class="lose">No artifact</td><td><span class="tag tag-green">OpenKB</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Relative Strengths (Interactive)</h2>
+  <p>Hover to compare. Bars show relative advantage (higher = stronger).</p>
+
+  <div style="margin-top:1rem">
+    <p style="color:var(--cyan); font-weight:600; font-size:0.85rem; margin-bottom:4px;">OpenKB strengths</p>
+    <div class="meter-row"><span class="meter-label">Cross-doc synthesis</span><div class="meter-track"><div class="meter-fill" style="width:95%;background:var(--cyan)"></div></div><span class="meter-val">95</span></div>
+    <div class="meter-row"><span class="meter-label">Entity tracking</span><div class="meter-track"><div class="meter-fill" style="width:90%;background:var(--cyan)"></div></div><span class="meter-val">90</span></div>
+    <div class="meter-row"><span class="meter-label">Contradiction detection</span><div class="meter-track"><div class="meter-fill" style="width:85%;background:var(--cyan)"></div></div><span class="meter-val">85</span></div>
+    <div class="meter-row"><span class="meter-label">Knowledge browsability</span><div class="meter-track"><div class="meter-fill" style="width:92%;background:var(--cyan)"></div></div><span class="meter-val">92</span></div>
+    <div class="meter-row"><span class="meter-label">Long-doc deep dive</span><div class="meter-track"><div class="meter-fill" style="width:80%;background:var(--cyan)"></div></div><span class="meter-val">80</span></div>
+  </div>
+  <div style="margin-top:1.5rem">
+    <p style="color:var(--purple); font-weight:600; font-size:0.85rem; margin-bottom:4px;">RAG strengths</p>
+    <div class="meter-row"><span class="meter-label">Ingestion speed</span><div class="meter-track"><div class="meter-fill" style="width:95%;background:var(--purple)"></div></div><span class="meter-val">95</span></div>
+    <div class="meter-row"><span class="meter-label">Retrieval latency</span><div class="meter-track"><div class="meter-fill" style="width:92%;background:var(--purple)"></div></div><span class="meter-val">92</span></div>
+    <div class="meter-row"><span class="meter-label">Corpus scalability</span><div class="meter-track"><div class="meter-fill" style="width:90%;background:var(--purple)"></div></div><span class="meter-val">90</span></div>
+    <div class="meter-row"><span class="meter-label">Incremental updates</span><div class="meter-track"><div class="meter-fill" style="width:88%;background:var(--purple)"></div></div><span class="meter-val">88</span></div>
+    <div class="meter-row"><span class="meter-label">Cost efficiency</span><div class="meter-track"><div class="meter-fill" style="width:90%;background:var(--purple)"></div></div><span class="meter-val">90</span></div>
+  </div>
+
+</section>
+
+<!-- ═══════ COMPILER ═══════ -->
+<section class="section" id="sec-compiler">
+  <h1>The LLM <span>Compiler</span></h1>
+  <p>OpenKB's compiler is the heart of its ingestion pipeline. It runs every time you <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.88rem;color:var(--cyan);">openkb add</code> a document, transforming raw content into interconnected wiki pages through a multi-step LLM pipeline.</p>
+  <p>Click each step to expand its details, or use the controls below to walk through the pipeline.</p>
+
+  <div class="step-controls">
+    <button onclick="stepTo(0)">Reset</button>
+    <button onclick="stepPrev()">&#8592; Prev</button>
+    <button onclick="stepNext()">Next &#8594;</button>
+    <button onclick="stepAll()">Show All</button>
+  </div>
+
+  <div class="compiler-steps" id="compilerSteps">
+
+    <!-- Step 1 -->
+    <div class="step-node" data-step="0" onclick="toggleStep(this)">
+      <div class="step-dot">1</div>
+      <div class="step-header">
+        Build Base Context
+        <span class="step-badge badge-code">Code</span>
+      </div>
+      <div class="step-desc">Assemble system prompt + document content into the shared message prefix.</div>
+      <div class="step-detail">
+        <div class="step-detail-inner">
+          <p>The compiler builds a <strong>base context</strong> that will be reused (and cached) across all subsequent LLM calls:</p>
+          <ul>
+            <li><strong>System prompt:</strong> loaded from <code>wiki/AGENTS.md</code> &mdash; the wiki schema, conventions, and language setting.</li>
+            <li><strong>Document content:</strong>
+              <ul>
+                <li><em>Short docs</em> (&lt;20 pages): full Markdown text (converted via markitdown).</li>
+                <li><em>Long PDFs</em> (&ge;20 pages): the PageIndex tree summary (hierarchical structure with node summaries, descriptions, and page ranges).</li>
+              </ul>
+            </li>
+          </ul>
+          <p>This context is tagged with Anthropic <code>cache_control</code> markers so that providers that support prompt caching (Anthropic, OpenRouter&rarr;Claude) can cache it across all N subsequent calls. For other providers, the markers are stripped automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-node" data-step="1" onclick="toggleStep(this)">
+      <div class="step-dot">2</div>
+      <div class="step-header">
+        Generate Summary
+        <span class="step-badge badge-llm">LLM Call #1</span>
+      </div>
+      <div class="step-desc">LLM reads the document and produces a structured summary page.</div>
+      <div class="step-detail">
+        <div class="step-detail-inner">
+          <p>The full document content is sent to the LLM with a prompt requesting a <strong>JSON response</strong> with two keys:</p>
+          <div class="json-preview">{
+  <span class="jk">"description"</span>: <span class="js">"Single sentence, &lt;100 chars, main contribution"</span>,
+  <span class="jk">"content"</span>: <span class="js">"Full summary in Markdown with [[wikilinks]]..."</span>
+}</div>
+          <ul>
+            <li>The summary must include key concepts, findings, ideas, and <code>[[wikilinks]]</code> to concepts that could become cross-document concept pages.</li>
+            <li>For long docs, the LLM reads the PageIndex tree summary (not the raw PDF) and writes a concise overview that captures key themes.</li>
+            <li>Output is written to <code>wiki/summaries/&lt;doc_name&gt;.md</code> with YAML frontmatter (type, description, doc_type, full_text path).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-node" data-step="2" onclick="toggleStep(this)">
+      <div class="step-dot">3</div>
+      <div class="step-header">
+        Concepts &amp; Entities Plan
+        <span class="step-badge badge-llm">LLM Call #2</span>
+      </div>
+      <div class="step-desc">LLM decides which concept and entity pages to create, update, or cross-link.</div>
+      <div class="step-detail">
+        <div class="step-detail-inner">
+          <p>The LLM receives the summary it just wrote <strong>plus</strong> a compact listing of all existing concepts (from <code>concepts/*.md</code> frontmatter) and entities (from <code>entities/*.md</code> with source counts). It returns a <strong>plan</strong>:</p>
+          <div class="json-preview">{
+  <span class="jk">"concepts"</span>: {
+    <span class="jk">"create"</span>: [{ <span class="jk">"name"</span>: <span class="js">"attention-mechanisms"</span>, <span class="jk">"title"</span>: <span class="js">"Attention Mechanisms"</span> }],
+    <span class="jk">"update"</span>: [{ <span class="jk">"name"</span>: <span class="js">"transformer-architecture"</span>, <span class="jk">"title"</span>: <span class="js">"Transformer Architecture"</span> }],
+    <span class="jk">"related"</span>: [<span class="js">"neural-networks"</span>, <span class="js">"sequence-modeling"</span>]
+  },
+  <span class="jk">"entities"</span>: {
+    <span class="jk">"create"</span>: [{ <span class="jk">"name"</span>: <span class="js">"anthropic"</span>, <span class="jk">"title"</span>: <span class="js">"Anthropic"</span>, <span class="jk">"type"</span>: <span class="js">"organization"</span> }],
+    <span class="jk">"update"</span>: [...],
+    <span class="jk">"related"</span>: [...]
+  }
+}</div>
+          <p><strong>Key rules enforced by the prompt:</strong></p>
+          <ul>
+            <li><strong>Update over create:</strong> if a concept/entity already exists, prefer "update" to avoid duplicates.</li>
+            <li><strong>Concepts vs entities:</strong> a concept is an abstract idea (e.g. "agentic systems"); an entity is a named thing (e.g. "Anthropic"). They cross-link but never merge.</li>
+            <li><strong>Entity gating:</strong> only create entity pages for things central to the doc or likely to recur. ~5-15 entities per doc is typical; passing mentions are skipped.</li>
+            <li><strong>Conservative start:</strong> for the first few documents, only 2-3 foundational concepts are created.</li>
+            <li>Entity types are configurable per-KB via <code>.openkb/config.yaml</code> (default: person, organization, place, product, other).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step-node" data-step="3" onclick="toggleStep(this)">
+      <div class="step-dot">4</div>
+      <div class="step-header">
+        Generate / Rewrite Pages
+        <span class="step-badge badge-llm">LLM Calls #3-N (concurrent)</span>
+      </div>
+      <div class="step-desc">All new and updated concept/entity pages are generated concurrently via async LLM calls.</div>
+      <div class="step-detail">
+        <div class="step-detail-inner">
+          <p>This is where the bulk of LLM cost lives. The plan from Step 3 drives <strong>concurrent async calls</strong> &mdash; one per page to create or update:</p>
+          <ul>
+            <li><strong>New concept page:</strong> LLM writes a full concept page from scratch &mdash; explanation, key details from the source, and <code>[[wikilinks]]</code> to related concepts and the summary.</li>
+            <li><strong>Updated concept page:</strong> LLM receives the <em>existing page content</em> and <strong>rewrites the full page</strong> integrating new information naturally (not just appending). Preserves existing structure and intent.</li>
+            <li><strong>New entity page:</strong> same as concept but includes a <code>type</code> field (person, organization, place, product).</li>
+            <li><strong>Updated entity page:</strong> same rewrite pattern &mdash; full page rewrite with new facts integrated.</li>
+          </ul>
+          <p><strong>Safety mechanisms:</strong></p>
+          <ul>
+            <li><strong>Truncation protection:</strong> if any call hits the token limit, the page is <em>skipped entirely</em> rather than writing partial content.</li>
+            <li><strong>Wikilink whitelist:</strong> before these calls, the LLM receives a whitelist of all valid wiki page targets. It may only link to pages that actually exist &mdash; no invented links.</li>
+            <li><strong>JSON repair:</strong> malformed LLM JSON output is automatically repaired via <code>json_repair</code>; if it's still unparseable, the raw text is treated as prose Markdown.</li>
+          </ul>
+
+          <p style="margin-top:1rem; margin-bottom:0.5rem; font-weight:600; color:var(--cyan);">Prompt Caching Optimization</p>
+          <p>The pipeline is designed around two cache breakpoints:</p>
+          <div class="cache-diagram">
+            <div class="cache-block cache-hit">
+              System + Doc
+              <small>Cached across ALL calls</small>
+            </div>
+            <div class="cache-block cache-hit">
+              + Summary
+              <small>Cached across concept/entity calls</small>
+            </div>
+            <div class="cache-block cache-miss">
+              + Per-page prompt
+              <small>Unique per call</small>
+            </div>
+          </div>
+          <p>The expensive document content is sent to the API <strong>once</strong> and reused for every subsequent call via Anthropic's prompt caching. This dramatically reduces both cost and latency for the concurrent calls.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step-node" data-step="4" onclick="toggleStep(this)">
+      <div class="step-dot">5</div>
+      <div class="step-header">
+        Post-Processing
+        <span class="step-badge badge-both">Code + LLM</span>
+      </div>
+      <div class="step-desc">Cross-references, wikilink validation, index updates, and summary rewrite.</div>
+      <div class="step-detail">
+        <div class="step-detail-inner">
+          <p>A mix of deterministic code and one final LLM call to finalize everything:</p>
+          <ul>
+            <li><strong>Cross-reference links</strong> <span class="step-badge badge-code" style="font-size:0.6rem">Code</span> &mdash; "related" concepts/entities from the plan get <code>[[wikilinks]]</code> added to their existing pages <em>without</em> rewriting content. Lightweight linking only.</li>
+            <li><strong>Wikilink validation</strong> <span class="step-badge badge-code" style="font-size:0.6rem">Code</span> &mdash; all <code>[[wikilinks]]</code> in generated pages are checked against actual wiki pages. Invalid/dangling links are stripped by <code>strip_ghost_wikilinks()</code>.</li>
+            <li><strong>Index update</strong> <span class="step-badge badge-code" style="font-size:0.6rem">Code</span> &mdash; <code>wiki/index.md</code> is updated with new entries under its <code>## Documents</code>, <code>## Concepts</code>, and <code>## Entities</code> sections. Entries include the description from each page's frontmatter.</li>
+            <li><strong>Summary rewrite</strong> <span class="step-badge badge-llm" style="font-size:0.6rem">LLM</span> &mdash; one final LLM call rewrites the summary to upgrade plain-text mentions to <code>[[wikilinks]]</code> where concept pages now exist, while preserving all factual content.</li>
+            <li><strong>Frontmatter management</strong> <span class="step-badge badge-code" style="font-size:0.6rem">Code</span> &mdash; each page gets YAML frontmatter tracking <code>type</code>, <code>description</code>, <code>sources</code> (which docs contributed), and <code>doc_type</code>. On updates, the new source is prepended to the sources list.</li>
+          </ul>
+          <p>All file writes use <strong>atomic write</strong> (<code>openkb/locks.py</code>): temp file + <code>os.replace</code>, so a crash mid-write never leaves a corrupted page on disk.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Total Cost Profile</h2>
+  <p>A single <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.88rem;color:var(--cyan);">openkb add paper.pdf</code> typically triggers:</p>
+
+  <div class="card" style="margin-top:1rem">
+    <div class="cost-bar-wrap">
+      <div class="cost-bar-label"><span>Step 2: Summary generation</span><span style="color:var(--accent)">1 LLM call</span></div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:12%;background:var(--accent)"></div></div>
+    </div>
+    <div class="cost-bar-wrap">
+      <div class="cost-bar-label"><span>Step 3: Concepts/entities plan</span><span style="color:var(--accent)">1 LLM call</span></div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:12%;background:var(--accent)"></div></div>
+    </div>
+    <div class="cost-bar-wrap">
+      <div class="cost-bar-label"><span>Step 4: Page generation (concurrent)</span><span style="color:var(--red)">5-15 LLM calls</span></div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:72%;background:var(--red)"></div></div>
+    </div>
+    <div class="cost-bar-wrap">
+      <div class="cost-bar-label"><span>Step 5: Summary rewrite</span><span style="color:var(--accent)">1 LLM call</span></div>
+      <div class="cost-bar-track"><div class="cost-bar-fill" style="width:8%;background:var(--accent)"></div></div>
+    </div>
+    <p style="margin-top:1rem; font-size:0.85rem; color:var(--amber);">Total: ~8-18 LLM calls per document. Step 4 dominates cost but benefits most from prompt caching.</p>
+  </div>
+
+  <h2>What the Compiler Produces</h2>
+  <p>For a single document, the compiler may create or modify:</p>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 1rem;">
+    <div class="card" style="text-align:center; padding:1.25rem">
+      <div style="font-size:1.8rem; font-weight:800; color:var(--cyan);">1</div>
+      <div style="font-size:0.85rem; color:var(--text-dim); margin-top:4px;">Summary page</div>
+      <div style="font-size:0.72rem; color:var(--text-dim); opacity:0.6; margin-top:2px;">wiki/summaries/</div>
+    </div>
+    <div class="card" style="text-align:center; padding:1.25rem">
+      <div style="font-size:1.8rem; font-weight:800; color:var(--purple);">2-5</div>
+      <div style="font-size:0.85rem; color:var(--text-dim); margin-top:4px;">Concept pages</div>
+      <div style="font-size:0.72rem; color:var(--text-dim); opacity:0.6; margin-top:2px;">wiki/concepts/</div>
+    </div>
+    <div class="card" style="text-align:center; padding:1.25rem">
+      <div style="font-size:1.8rem; font-weight:800; color:var(--green);">5-15</div>
+      <div style="font-size:0.85rem; color:var(--text-dim); margin-top:4px;">Entity pages</div>
+      <div style="font-size:0.72rem; color:var(--text-dim); opacity:0.6; margin-top:2px;">wiki/entities/</div>
+    </div>
+    <div class="card" style="text-align:center; padding:1.25rem">
+      <div style="font-size:1.8rem; font-weight:800; color:var(--amber);">1</div>
+      <div style="font-size:0.85rem; color:var(--text-dim); margin-top:4px;">Index update</div>
+      <div style="font-size:0.72rem; color:var(--text-dim); opacity:0.6; margin-top:2px;">wiki/index.md</div>
+    </div>
+  </div>
+  <p style="margin-top:1rem;">Plus cross-links added to existing pages touched by "related" entries. This is what makes OpenKB a <strong>write-heavy, read-optimized</strong> system &mdash; it's doing the work of a librarian at ingest time so queries benefit from pre-compiled, structured knowledge.</p>
+
+</section>
+
+<!-- ═══════ DEEP DIVE ═══════ -->
+<section class="section" id="sec-deep-dive">
+  <h1>Deep Dive</h1>
+  <p>Expand each topic to study the details.</p>
+
+  <div class="accordion">
+    <button class="acc-header" onclick="toggleAcc(this)">
+      1. Document Ingestion: What Happens Under the Hood
+      <span class="chevron">&#9660;</span>
+    </button>
+    <div class="acc-body">
+      <h3>OpenKB Ingestion</h3>
+      <ul>
+        <li>Short docs (&lt;20 pages): converted to Markdown via <em>markitdown</em>, then read in full by the LLM.</li>
+        <li>Long PDFs (&ge;20 pages): processed by <strong>PageIndex</strong> into a hierarchical tree index with node summaries and descriptions. Multiple LLM calls per document.</li>
+        <li>The LLM <em>compiler</em> then generates: a summary page, creates/updates concept pages, extracts entity pages, and writes cross-links.</li>
+        <li>A single source can touch <strong>10-15 wiki pages</strong>. Each new document is reconciled against all existing concepts &mdash; cost grows superlinearly.</li>
+      </ul>
+      <h3>RAG Ingestion</h3>
+      <ul>
+        <li>Documents are split into chunks (fixed-size, sentence-based, or semantic).</li>
+        <li>Each chunk is embedded using an embedding model (e.g., text-embedding-3-large). ~100x cheaper per token than generation.</li>
+        <li>Embeddings are stored in a vector database (Pinecone, Weaviate, Chroma, etc.).</li>
+        <li>Cost grows <strong>linearly</strong> &mdash; no cross-document reconciliation at ingest time.</li>
+        <li>Optional: generate summaries per chunk or per document for hierarchical retrieval (adds LLM cost).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="accordion">
+    <button class="acc-header" onclick="toggleAcc(this)">
+      2. Retrieval Mechanisms Compared
+      <span class="chevron">&#9660;</span>
+    </button>
+    <div class="acc-body">
+      <h3>OpenKB: Agent-Driven Navigation</h3>
+      <ul>
+        <li>An LLM agent is given tools: <code>read_file</code>, <code>get_page_content</code>, <code>get_image</code>.</li>
+        <li>The agent reads <code>index.md</code> to see all documents and concepts with brief summaries.</li>
+        <li>It decides which summary, concept, or entity pages to read &mdash; then optionally drills into source pages.</li>
+        <li>Each decision is an LLM inference call. Up to <strong>50 turns</strong> allowed. Typical queries use 3-10 tool calls.</li>
+        <li>This is <em>reasoning-based retrieval</em>: the LLM understands document structure and navigates intelligently.</li>
+      </ul>
+      <h3>RAG: Vector Search + Reranking</h3>
+      <ul>
+        <li><strong>Stage 1 &mdash; Retrieval:</strong> Query is embedded, ANN search returns top-k candidates (~100ms). Algorithms: HNSW, IVF, ScaNN.</li>
+        <li><strong>Stage 2 &mdash; Reranking (optional):</strong>
+          <ul>
+            <li><em>Cross-encoder reranker</em> (e.g., BGE-reranker, Cohere Rerank): scores each (query, chunk) pair. +0.5-2s.</li>
+            <li><em>LLM reranker</em>: uses an LLM to score relevance. Most accurate but slowest. +2-5s.</li>
+          </ul>
+        </li>
+        <li><strong>Stage 3 &mdash; Generation:</strong> Top-k reranked chunks are stuffed into the LLM prompt as context.</li>
+        <li>Tunable parameters: chunk size, overlap, embedding model, k, reranker choice, number of reranked results.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="accordion">
+    <button class="acc-header" onclick="toggleAcc(this)">
+      3. Accuracy by Query Type
+      <span class="chevron">&#9660;</span>
+    </button>
+    <div class="acc-body">
+      <h3>Factual Lookup (single document)</h3>
+      <p>Both perform well. RAG with a good cross-encoder reranker is very competitive. OpenKB's summary pages often contain the answer directly, avoiding source lookup.</p>
+      <h3>Cross-Document Synthesis</h3>
+      <p><strong>OpenKB's biggest advantage.</strong> Concept pages already synthesize information across documents at compile time. The agent reads one page instead of stitching fragments. RAG must retrieve chunks from multiple documents and rely on the LLM to synthesize at query time &mdash; often missing relevant chunks.</p>
+      <h3>Entity-Centric Queries</h3>
+      <p>OpenKB maintains dedicated entity pages (people, orgs, places, products) that aggregate all mentions. RAG must hope that vector search finds all relevant chunks mentioning the entity &mdash; name variations and scattered references are problematic.</p>
+      <h3>Long Document Deep Dive</h3>
+      <p>OpenKB's PageIndex tree lets the agent target specific page ranges. RAG depends on chunk boundaries &mdash; poorly split chunks lose context. Hierarchical chunking helps but adds complexity.</p>
+      <h3>Contradictions</h3>
+      <p>OpenKB's LLM linter flags contradictions at compile time. RAG has no built-in mechanism &mdash; conflicting chunks may both be retrieved and presented to the user.</p>
+    </div>
+  </div>
+
+  <div class="accordion">
+    <button class="acc-header" onclick="toggleAcc(this)">
+      4. RAG Parameter Space
+      <span class="chevron">&#9660;</span>
+    </button>
+    <div class="acc-body">
+      <p>RAG accuracy is highly sensitive to parameter choices:</p>
+      <ul>
+        <li><strong>Chunk size:</strong> 256-2048 tokens typical. Smaller = more precise retrieval, larger = more context per chunk. No universally optimal value.</li>
+        <li><strong>Chunk overlap:</strong> 10-25% prevents information loss at boundaries.</li>
+        <li><strong>Embedding model:</strong> OpenAI text-embedding-3-large, Cohere embed-v4, BGE-M3, etc. Performance varies by domain.</li>
+        <li><strong>Top-k:</strong> 3-20 chunks. More = higher recall, but more noise and cost.</li>
+        <li><strong>Reranker:</strong> None &rarr; cross-encoder &rarr; LLM reranker. Each level adds latency but improves precision.</li>
+        <li><strong>Indexing algorithm:</strong> HNSW (fast, memory-heavy), IVF (scalable, slightly less accurate), ScaNN (Google, good balance).</li>
+        <li><strong>Hybrid search:</strong> Combining dense (vector) + sparse (BM25) retrieval often outperforms either alone.</li>
+      </ul>
+      <p>OpenKB avoids this parameter space entirely by using structured compilation &mdash; but introduces its own complexity (LLM prompt engineering for the compiler).</p>
+    </div>
+  </div>
+
+  <div class="accordion">
+    <button class="acc-header" onclick="toggleAcc(this)">
+      5. When to Use Which
+      <span class="chevron">&#9660;</span>
+    </button>
+    <div class="acc-body">
+      <h3>Choose OpenKB when:</h3>
+      <ul>
+        <li>You have a stable, curated corpus queried many times (the upfront cost amortizes).</li>
+        <li>Cross-document synthesis and entity tracking are important.</li>
+        <li>You need a persistent, browsable knowledge artifact (the wiki itself has value).</li>
+        <li>Knowledge quality matters more than speed.</li>
+        <li>Documents are long and complex (PageIndex tree indexing shines).</li>
+      </ul>
+      <h3>Choose RAG when:</h3>
+      <ul>
+        <li>Documents change frequently and you need fast re-indexing.</li>
+        <li>You need sub-second retrieval latency (user-facing search, chatbots).</li>
+        <li>The corpus is very large (10K+ documents).</li>
+        <li>Queries are mostly single-document factual lookups.</li>
+        <li>Budget is tight &mdash; embedding is orders of magnitude cheaper than LLM compilation.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ FLASHCARDS ═══════ -->
+<section class="section" id="sec-flashcards">
+  <h1>Flashcards</h1>
+  <p>Click a card to flip it. Use the arrows to navigate.</p>
+
+  <div class="flashcard-container">
+    <div class="flashcard" id="flashcard" onclick="flipCard()">
+      <div class="flashcard-face flashcard-front">
+        <h3 id="fc-question"></h3>
+        <p id="fc-hint" class="flashcard-hint">Click to reveal answer</p>
+      </div>
+      <div class="flashcard-face flashcard-back">
+        <p id="fc-answer"></p>
+      </div>
+    </div>
+  </div>
+  <div class="fc-counter" id="fc-counter"></div>
+  <div class="fc-nav">
+    <button onclick="prevCard()">&larr; Previous</button>
+    <button onclick="shuffleCards()">Shuffle</button>
+    <button onclick="nextCard()">Next &rarr;</button>
+  </div>
+</section>
+
+<!-- ═══════ QUIZ ═══════ -->
+<section class="section" id="sec-quiz">
+  <h1>Quiz</h1>
+  <p>Test your understanding. Select the best answer for each question.</p>
+  <div id="quiz-container"></div>
+  <div class="quiz-actions">
+    <button class="btn btn-secondary" onclick="resetQuiz()">Reset Quiz</button>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ═══════ TAB NAVIGATION ═══════
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('sec-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ═══════ ACCORDION ═══════
+function toggleAcc(btn) {
+  const body = btn.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  btn.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+}
+
+// ═══════ FLASHCARDS ═══════
+const flashcards = [
+  { q: "What does OpenKB do at ingestion time that RAG does not?", a: "OpenKB runs an LLM compiler that generates summaries, concept pages, entity pages, and cross-links across documents. RAG only chunks and embeds." },
+  { q: "Why is OpenKB's ingestion cost superlinear?", a: "Each new document must be reconciled against all existing concept and entity pages, potentially updating many of them. The cross-referencing work grows with corpus size." },
+  { q: "How does OpenKB retrieve information without vectors?", a: "An LLM agent navigates a structured wiki using tools (read_file, get_page_content). It reads index.md, then drills into summaries, concepts, and source pages as needed. This is reasoning-based retrieval." },
+  { q: "What are the three stages of a typical RAG pipeline?", a: "1) Retrieval: embed query, ANN search for top-k chunks. 2) Reranking: optionally re-score with cross-encoder or LLM. 3) Generation: stuff top chunks into LLM prompt." },
+  { q: "For which query type does OpenKB have the strongest advantage over RAG?", a: "Cross-document synthesis. Concept pages already contain pre-compiled synthesis across documents. RAG must retrieve scattered chunks and synthesize at query time." },
+  { q: "What is a cross-encoder reranker?", a: "A model that takes a (query, passage) pair as input and outputs a relevance score. Unlike bi-encoders (used for embedding), it sees both together, enabling richer interaction. Adds ~0.5-2s latency." },
+  { q: "Why does RAG struggle with entity-centric queries?", a: "Entity mentions are scattered across chunks. Vector search may miss some due to name variations, paraphrasing, or the entity being mentioned indirectly. No aggregation mechanism exists by default." },
+  { q: "What is PageIndex and why does OpenKB use it?", a: "PageIndex builds a hierarchical tree index for long PDFs, letting LLMs reason over document structure without reading the full text. It enables vectorless, context-aware retrieval for documents too long for context windows." },
+  { q: "Name three tunable RAG parameters that affect accuracy.", a: "Chunk size, embedding model choice, and reranker type (none / cross-encoder / LLM). Also: top-k, chunk overlap, hybrid search weight, and indexing algorithm." },
+  { q: "What is OpenKB's approach to contradiction detection?", a: "OpenKB has a built-in LLM linter (agent/linter.py) that flags contradictions at compile time. RAG has no equivalent mechanism \u2014 conflicting chunks can both be retrieved and presented." },
+  { q: "What does 'write-heavy, read-optimized' mean for OpenKB?", a: "OpenKB invests heavily at ingestion (many LLM calls to compile the wiki) so that every future query benefits from pre-compiled knowledge. The cost amortizes over many queries." },
+  { q: "When would you choose RAG over OpenKB?", a: "When documents change frequently, you need sub-second latency, the corpus is very large (10K+ docs), queries are mostly factual lookups, or budget is tight." },
+  { q: "What is hybrid search in RAG?", a: "Combining dense retrieval (vector/semantic similarity) with sparse retrieval (BM25/keyword matching). Often outperforms either method alone, especially for queries with specific terms or names." },
+  { q: "How does OpenKB handle long documents differently from short ones?", a: "Short docs (<20 pages): markitdown \u2192 full text to LLM. Long PDFs (\u226520 pages): PageIndex tree index + summaries. The LLM reads the tree structure instead of the full text." },
+  { q: "What is the typical retrieval latency for OpenKB vs RAG?", a: "OpenKB: 5-30+ seconds (multiple sequential LLM tool-call turns). RAG: <1s for pure vector search, 1-5s with reranking." },
+  { q: "What are the 5 steps of the OpenKB LLM compiler?", a: "1) Build base context (system prompt + doc). 2) Generate summary (LLM call #1). 3) Concepts & entities plan (LLM call #2). 4) Generate/rewrite pages concurrently (LLM calls #3-N). 5) Post-processing: cross-refs, wikilink validation, index update, summary rewrite." },
+  { q: "How does the compiler decide between 'create' and 'update' for a concept?", a: "The LLM receives a listing of ALL existing concept and entity pages (from frontmatter). If a concept already exists, the prompt instructs it to use 'update' (rewrite integrating new info) rather than 'create' (which would duplicate it)." },
+  { q: "What happens if an LLM call hits the token limit during page generation?", a: "The page is SKIPPED entirely (TruncatedResponseError). OpenKB never writes a truncated/partial page. This is enforced by raise_on_truncation=True on all page-generating calls." },
+  { q: "How does OpenKB's prompt caching optimization work?", a: "Two cache breakpoints: (1) System + document content is cached across ALL subsequent calls. (2) System + doc + summary is cached across all concept/entity page calls. The expensive document is sent once and reused via Anthropic's ephemeral cache_control markers." },
+  { q: "What is the difference between a concept and an entity in OpenKB?", a: "A concept is an abstract, recurring idea (e.g. 'attention mechanisms'). An entity is a specific named thing \u2014 a person, org, place, or product (e.g. 'Anthropic'). They cross-link but never merge into one page." },
+  { q: "How many LLM calls does a typical openkb add trigger?", a: "~8-18 calls: 1 for summary, 1 for concept/entity plan, 5-15 for page generation (concurrent), and 1 for summary rewrite. Step 4 dominates cost but benefits most from prompt caching." },
+  { q: "What does the wikilink whitelist do?", a: "Before generating pages, the LLM receives a list of ALL valid wiki page targets. It may only create [[wikilinks]] to pages in the whitelist. After generation, code strips any ghost links to targets not in the whitelist." },
+];
+
+let fcIndex = 0;
+function renderCard() {
+  const fc = flashcards[fcIndex];
+  document.getElementById('fc-question').textContent = fc.q;
+  document.getElementById('fc-answer').textContent = fc.a;
+  document.getElementById('flashcard').classList.remove('flipped');
+  document.getElementById('fc-counter').textContent = `${fcIndex + 1} / ${flashcards.length}`;
+}
+function flipCard() { document.getElementById('flashcard').classList.toggle('flipped'); }
+function nextCard() { fcIndex = (fcIndex + 1) % flashcards.length; renderCard(); }
+function prevCard() { fcIndex = (fcIndex - 1 + flashcards.length) % flashcards.length; renderCard(); }
+function shuffleCards() {
+  for (let i = flashcards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+  }
+  fcIndex = 0; renderCard();
+}
+renderCard();
+
+// ═══════ QUIZ ═══════
+const quizData = [
+  {
+    q: "What retrieval approach does OpenKB use instead of vector similarity search?",
+    opts: [
+      "BM25 keyword search",
+      "An LLM agent that navigates a structured wiki using tool calls",
+      "Graph-based traversal with Neo4j",
+      "TF-IDF with cosine similarity"
+    ],
+    correct: 1,
+    explanation: "OpenKB uses reasoning-based retrieval: an LLM agent is given tools (read_file, get_page_content) and navigates the wiki by reading index.md, then drilling into summaries, concepts, and source pages. No vectors or embeddings are involved."
+  },
+  {
+    q: "Which factor makes OpenKB's ingestion cost grow superlinearly with corpus size?",
+    opts: [
+      "Embedding dimensions increase with more documents",
+      "Each new document must be reconciled against existing concept and entity pages",
+      "The vector index needs to be rebuilt from scratch each time",
+      "PageIndex tree depth grows logarithmically"
+    ],
+    correct: 1,
+    explanation: "When a new document is added, the LLM compiler reads all existing concept and entity pages to decide what to create or update. As the corpus grows, there are more pages to reconcile against, making each addition more expensive."
+  },
+  {
+    q: "A user asks: 'How do the findings of Paper A contradict Paper B?' Which system handles this better out of the box?",
+    opts: [
+      "RAG with cross-encoder reranking",
+      "RAG with LLM reranking",
+      "OpenKB",
+      "Both handle it equally well"
+    ],
+    correct: 2,
+    explanation: "OpenKB's concept pages already contain cross-document synthesis compiled at ingestion time, and its LLM linter can flag contradictions. RAG would need to retrieve relevant chunks from both papers and rely on the generation LLM to notice the contradiction \u2014 with no guarantee it retrieves the right chunks from each."
+  },
+  {
+    q: "What is the primary purpose of a cross-encoder reranker in a RAG pipeline?",
+    opts: [
+      "To generate embeddings faster than a bi-encoder",
+      "To re-score retrieved chunks by examining each (query, chunk) pair jointly",
+      "To split documents into optimal chunk sizes",
+      "To detect and remove duplicate chunks"
+    ],
+    correct: 1,
+    explanation: "A cross-encoder takes a (query, passage) pair as a single input and outputs a relevance score. Unlike bi-encoders which embed query and passage independently, the cross-encoder sees both together, enabling richer semantic comparison. This improves precision at the cost of ~0.5-2s additional latency."
+  },
+  {
+    q: "You have 50,000 documents that update daily and need sub-second search. Which approach fits better?",
+    opts: [
+      "OpenKB \u2014 the compiled wiki will be more accurate",
+      "RAG \u2014 fast ingestion, sub-second vector search, cheap incremental updates",
+      "OpenKB with PageIndex Cloud for faster indexing",
+      "Neither \u2014 you need a traditional search engine"
+    ],
+    correct: 1,
+    explanation: "RAG is designed for this scenario: linear ingestion cost, sub-second ANN retrieval, and cheap incremental updates (just re-embed changed docs). OpenKB's multi-minute compilation per document and superlinear reconciliation cost make it impractical at this scale and update frequency."
+  },
+  {
+    q: "What does PageIndex do for long documents in OpenKB?",
+    opts: [
+      "Splits them into fixed-size chunks and creates embeddings",
+      "Builds a hierarchical tree index with node summaries, enabling the LLM to reason over document structure",
+      "Converts them to a graph database representation",
+      "Compresses them to fit within the LLM context window"
+    ],
+    correct: 1,
+    explanation: "PageIndex creates a hierarchical tree index for long PDFs. Each node has summaries and page ranges. The LLM reads this tree structure to understand document organization and can target specific page ranges for detailed retrieval \u2014 without needing to read the entire document."
+  },
+  {
+    q: "Which RAG enhancement most closely approximates OpenKB's cross-document synthesis capability?",
+    opts: [
+      "Larger chunk sizes with more overlap",
+      "A knowledge graph layer that links entities across documents",
+      "A faster embedding model",
+      "Increasing top-k to retrieve more chunks"
+    ],
+    correct: 1,
+    explanation: "A knowledge graph layer on top of RAG (sometimes called GraphRAG) pre-computes relationships between entities and concepts across documents, similar to how OpenKB's concept and entity pages synthesize information at compile time. Larger chunks, faster embeddings, or higher top-k don't address the fundamental lack of cross-document structure."
+  },
+  {
+    q: "In OpenKB's query agent, what is the maximum number of tool-call turns allowed?",
+    opts: [
+      "10",
+      "25",
+      "50",
+      "100"
+    ],
+    correct: 2,
+    explanation: "The query agent's MAX_TURNS is set to 50 (defined in openkb/agent/query.py). This allows the agent to make many sequential tool calls to navigate the wiki, but also means complex queries can take significantly longer than simple ones."
+  },
+  {
+    q: "What is the key philosophical difference between OpenKB and RAG?",
+    opts: [
+      "OpenKB uses open-source models; RAG uses proprietary ones",
+      "OpenKB front-loads expensive reasoning at ingestion; RAG defers it to query time",
+      "OpenKB works offline; RAG requires an internet connection",
+      "OpenKB is for structured data; RAG is for unstructured data"
+    ],
+    correct: 1,
+    explanation: "OpenKB is 'write-heavy, read-optimized' \u2014 it invests heavily at ingestion time (LLM compilation into a wiki) so queries benefit from pre-compiled knowledge. RAG is 'write-cheap, read-heavy' \u2014 ingestion is fast (just embed), but all reasoning happens at query time. The trade-off: OpenKB amortizes cost over many queries; RAG pays per query."
+  },
+  {
+    q: "Which of these is NOT a tunable parameter in a typical RAG pipeline?",
+    opts: [
+      "Chunk size and overlap",
+      "Number of concept pages to generate",
+      "Top-k retrieval count",
+      "Reranker model choice"
+    ],
+    correct: 1,
+    explanation: "Generating concept pages is an OpenKB concept, not a RAG parameter. RAG's tunable parameters include chunk size, overlap, embedding model, top-k, reranker choice, indexing algorithm (HNSW, IVF, ScaNN), and hybrid search weights."
+  },
+  {
+    q: "What does the OpenKB compiler do in Step 3 (Concepts & Entities Plan)?",
+    opts: [
+      "Generates embeddings for each concept",
+      "Asks the LLM to decide which concept/entity pages to create, update, or cross-link based on existing wiki state",
+      "Splits the document into concept-aligned chunks",
+      "Runs a named entity recognition model to extract entities"
+    ],
+    correct: 1,
+    explanation: "Step 3 sends the summary + a listing of all existing concept/entity pages to the LLM, which returns a structured JSON plan specifying which pages to create (new), update (rewrite with new info), or just cross-link (related). The LLM makes the editorial decision, not a classifier or NER model."
+  },
+  {
+    q: "How does OpenKB protect against writing truncated wiki pages?",
+    opts: [
+      "It retries the LLM call up to 3 times",
+      "It pads the prompt to ensure the response fits",
+      "It skips the page entirely if the LLM hits the token limit (TruncatedResponseError)",
+      "It uses json_repair to fill in missing content"
+    ],
+    correct: 2,
+    explanation: "When a page-generation LLM call finishes with finish_reason='length', OpenKB raises TruncatedResponseError and skips writing that page. This is enforced via raise_on_truncation=True on all page-writing calls (_llm_call_page_async). Partial content is never persisted."
+  },
+  {
+    q: "Why does the compiler rewrite the summary in Step 5?",
+    opts: [
+      "To shorten it for the index page",
+      "To translate it to the configured language",
+      "To upgrade plain-text mentions to [[wikilinks]] now that concept pages exist",
+      "To remove any LLM hallucinations"
+    ],
+    correct: 2,
+    explanation: "When the summary was first generated (Step 2), some concept pages didn't exist yet, so their mentions were plain text. After Step 4 creates those pages, the summary is rewritten to upgrade matching mentions to [[wikilinks]], making the wiki fully interlinked. All factual content is preserved."
+  },
+  {
+    q: "How does OpenKB's prompt caching reduce cost during compilation?",
+    opts: [
+      "It stores LLM responses in a local cache for future documents",
+      "It uses smaller models for repeated calls",
+      "It tags the system+document content with cache_control markers so the provider reuses the cached prefix across all subsequent calls",
+      "It compresses the document before sending to the LLM"
+    ],
+    correct: 2,
+    explanation: "The compiler marks the system prompt + document content with Anthropic's ephemeral cache_control. For providers that support it (Anthropic, OpenRouter\u2192Claude), this means the expensive document tokens are sent and billed once, then reused from cache for the summary, plan, all concept/entity pages, and the summary rewrite \u2014 potentially 8-18 calls sharing the same cached prefix."
+  },
+];
+
+let score = 0, answered = 0;
+
+function renderQuiz() {
+  const container = document.getElementById('quiz-container');
+  container.innerHTML = '';
+  quizData.forEach((q, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.id = 'qq-' + qi;
+    let optsHtml = q.opts.map((o, oi) =>
+      `<button class="quiz-option" data-qi="${qi}" data-oi="${oi}" onclick="pickAnswer(${qi},${oi})">${o}</button>`
+    ).join('');
+    div.innerHTML = `<p>${qi + 1}. ${q.q}</p>${optsHtml}<div class="quiz-explanation" id="qe-${qi}">${q.explanation}</div>`;
+    container.appendChild(div);
+  });
+  score = 0; answered = 0;
+  updateScore();
+}
+
+function pickAnswer(qi, oi) {
+  const qDiv = document.getElementById('qq-' + qi);
+  if (qDiv.dataset.answered) return;
+  qDiv.dataset.answered = '1';
+  answered++;
+  const btns = qDiv.querySelectorAll('.quiz-option');
+  btns.forEach(b => {
+    b.classList.add('picked');
+    const boi = parseInt(b.dataset.oi);
+    if (boi === quizData[qi].correct) b.classList.add('correct');
+    else if (boi === oi) b.classList.add('wrong');
+  });
+  if (oi === quizData[qi].correct) score++;
+  updateScore();
+  document.getElementById('qe-' + qi).classList.add('show');
+}
+
+function updateScore() {
+  document.getElementById('scorePill').textContent = `Score: ${score} / ${answered}`;
+}
+
+function resetQuiz() { renderQuiz(); }
+renderQuiz();
+
+// ═══════ COMPILER STEPS ═══════
+let currentStep = -1;
+const totalSteps = 5;
+
+function getStepNodes() {
+  return document.querySelectorAll('#compilerSteps .step-node');
+}
+
+function toggleStep(node) {
+  const detail = node.querySelector('.step-detail');
+  const isOpen = detail.classList.contains('open');
+  detail.classList.toggle('open', !isOpen);
+  node.classList.toggle('active', !isOpen);
+}
+
+function stepTo(idx) {
+  const nodes = getStepNodes();
+  currentStep = idx - 1;
+  nodes.forEach((n, i) => {
+    const detail = n.querySelector('.step-detail');
+    detail.classList.remove('open');
+    n.classList.remove('active', 'done');
+    if (i < idx) { n.classList.add('done'); }
+  });
+}
+
+function stepNext() {
+  const nodes = getStepNodes();
+  if (currentStep >= totalSteps - 1) return;
+  if (currentStep >= 0) {
+    const prev = nodes[currentStep];
+    prev.querySelector('.step-detail').classList.remove('open');
+    prev.classList.remove('active');
+    prev.classList.add('done');
+  }
+  currentStep++;
+  const curr = nodes[currentStep];
+  curr.classList.add('active');
+  curr.querySelector('.step-detail').classList.add('open');
+  curr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function stepPrev() {
+  const nodes = getStepNodes();
+  if (currentStep < 0) return;
+  const curr = nodes[currentStep];
+  curr.querySelector('.step-detail').classList.remove('open');
+  curr.classList.remove('active', 'done');
+  currentStep--;
+  if (currentStep >= 0) {
+    const prev = nodes[currentStep];
+    prev.classList.remove('done');
+    prev.classList.add('active');
+    prev.querySelector('.step-detail').classList.add('open');
+    prev.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function stepAll() {
+  const nodes = getStepNodes();
+  currentStep = totalSteps - 1;
+  nodes.forEach(n => {
+    n.classList.add('active');
+    n.querySelector('.step-detail').classList.add('open');
+  });
+}
+</script>
+</body>
+</html>
